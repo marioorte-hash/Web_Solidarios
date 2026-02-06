@@ -74,11 +74,11 @@ export function Navigation() {
         <div className="hidden lg:flex items-center gap-4">
           {/* Language Selector */}
           <div className="relative group">
-            <button className="flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-black/5 transition-colors">
-              <span className="text-xl">{flags[currentLang]}</span>
+            <button className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-black/5 transition-colors border border-black/5 bg-white/50">
+              <span className="text-xl leading-none">{flags[currentLang]}</span>
               <span className="text-xs font-bold text-foreground/60">{currentLang}</span>
             </button>
-            <div className="absolute top-full right-0 mt-2 w-32 bg-white rounded-xl shadow-lg border border-black/5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 p-1">
+            <div className="absolute top-full right-0 mt-2 w-32 bg-white rounded-xl shadow-lg border border-black/5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 p-1 z-[60]">
               {Object.entries(flags).map(([code, flag]) => (
                 <button
                   key={code}
@@ -87,7 +87,7 @@ export function Navigation() {
                     currentLang === code ? "bg-primary/5 text-primary" : "text-foreground/70"
                   }`}
                 >
-                  <span className="text-xl">{flag}</span>
+                  <span className="text-xl leading-none">{flag}</span>
                   <span className="font-medium">{code}</span>
                 </button>
               ))}
@@ -155,25 +155,28 @@ export function Navigation() {
                 </Link>
               ))}
               <div className="h-px bg-gray-100 my-2" />
-              <div className="flex justify-between px-4 py-2">
-                <div className="flex gap-2">
+              <div className="flex justify-between items-center px-4 py-3 bg-gray-50 rounded-xl mt-2">
+                <div className="flex gap-3">
                   {Object.entries(flags).map(([code, flag]) => (
                     <button
                       key={code}
                       onClick={() => setCurrentLang(code as keyof typeof flags)}
-                      className={`text-xl p-1 rounded hover:bg-gray-100 ${
-                        currentLang === code ? "bg-primary/10" : ""
+                      className={`text-2xl p-2 rounded-lg transition-all ${
+                        currentLang === code 
+                          ? "bg-white shadow-sm scale-110 border border-black/5" 
+                          : "opacity-50 grayscale hover:grayscale-0 hover:opacity-100"
                       }`}
+                      title={code}
                     >
                       {flag}
                     </button>
                   ))}
                 </div>
                 <div className="flex gap-2">
-                   <button className="p-2 rounded-full hover:bg-gray-100">
+                   <button className="p-2.5 rounded-full bg-white shadow-sm border border-black/5 text-foreground/70">
                      <Search className="w-5 h-5" />
                    </button>
-                   <button className="p-2 rounded-full hover:bg-gray-100">
+                   <button className="p-2.5 rounded-full bg-white shadow-sm border border-black/5 text-foreground/70">
                      <ShoppingCart className="w-5 h-5" />
                    </button>
                 </div>
