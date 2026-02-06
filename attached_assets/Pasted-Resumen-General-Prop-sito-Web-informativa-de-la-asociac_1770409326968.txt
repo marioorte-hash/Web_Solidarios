@@ -1,0 +1,82 @@
+Resumen General
+
+Propósito: Web informativa de la asociación "Alumnos Solidarios" para presentar misión, noticias, actividades y permitir contacto.
+Tipo de implementación: Sitio estático con páginas HTML independientes y CSS/JS locales; plantilla lista para contenido real.
+Estructura y Páginas
+
+Páginas principales: index.html (Inicio), razon-de-ser.html, apadrinamiento.html, noticias.html, agenda.html, blog.html, actividades.html, contacto.html.
+Páginas legales: aviso-legal.html, privacidad.html, cookies.html.
+Archivos de apoyo: CSS en style.css, JS en main.js, recursos en assets.
+Encabezado y navegación
+
+Logo: Imagen SVG en logo-full.svg, dentro de un enlace a la home.
+Navegación principal: Menu horizontal con enlaces a las secciones principales; en pantallas pequeñas se oculta y se muestra con el botón de menú.
+Botón menú móvil: Elemento .nav-toggle (texto ☰) que alterna la clase open en .main-nav.
+Selección de idioma: Grupo .lang-flags con botones de emoji (.flag) que añaden ?lang=xx a la URL (no hay traducciones reales, sólo parámetro).
+Botón de contacto flotante: .contact-fab (📩) fijo en la esquina superior derecha que enlaza a contacto.html.
+Hero y contenido principal
+
+Hero visual: .hero-image con background-image (hero.jpg por defecto) y texto de bienvenida dentro de la sección .hero.
+Llamada a la acción: Botón .btn.primary en el hero que enlaza a actividades internas.
+Sección de noticias: Bloques .card con imagen, título, resumen y enlace a blog.html o detalles.
+Grid: Uso de .grid para dos columnas en pantallas grandes; colapsa en móvil.
+Formulario y contacto
+
+Formulario en contacto.html: Formulario con id="contact-form" que incluye name, email, message y botón Enviar. action="#" (sin backend configurado).
+Contacto directo: Texto con email info@tudominio.org y teléfono +34 600 000 000 en varias páginas y footer.
+Validación: HTML5 (required) en inputs; no hay envío real ni integración con servidor o email-sending.
+Pie de página
+
+Estructura: Tres columnas: logo + redes, información de contacto, enlaces legales.
+Redes sociales: Enlaces con íconos SVG (Facebook, Twitter, Instagram) o texto (FB/TW/IG en algunas páginas).
+Año dinámico: Elemento #year actualizado por JavaScript a new Date().getFullYear().
+Enlaces legales repetidos: Privacidad, aviso legal, cookies y un enlace a una hipotética página de donaciones.
+Estilos y responsividad
+
+Variables CSS: :root define --primary, --accent, --bg, --text, --muted.
+Layout: .container centrada con max-width 1100px; display: grid para .grid; .card para tarjetas.
+Responsive: Media queries a 768px y 480px; oculta .main-nav en móvil y muestra .nav-toggle; adapta .contact-fab y .logo.
+Accesibilidad visual: Tipografía legible; algunos atributos ARIA (aria-label) en navegación, hero y botones; contraste y foco no completamente verificados.
+JavaScript e Interactividad
+
+Archivo: main.js
+Funciones:
+Actualiza #year en el footer.
+Añade ?lang=es|en|de según botón pulsado (redirige la página).
+Toggle del menú móvil (añade/quita clase open).
+Limitaciones: No hay manejo de envío del formulario, no hay carga dinámica de posts, ni integración con APIs, ni lazy-loading de imágenes, ni control fino de estados accesibles para lectores de pantalla.
+Recursos y organización
+
+Carpeta assets: Imágenes de hero y placeholders, logo SVG.
+CSS/JS locales: Todo servido desde style.css y main.js (fácil de desplegar en hosting estático).
+Imágenes de ejemplo: placeholder-1.jpg, placeholder-2.jpg (indicadas en index.html).
+Comportamientos y botones específicos
+
+Botones visibles:
+.flag (emoji) — cambia ?lang.
+.nav-toggle — abre/cierra menú móvil.
+.btn.primary — botones CTA (hero, enviar formulario).
+.read-more — enlaces a entradas con estilo.
+.contact-fab — acceso rápido a contacto.
+Enlaces del footer: Link a políticas y donaciones (donar.html referenciado aunque no exista en lista visible).
+Formulario Enviar: Sólo validación HTML; su acción es #, por lo que no envía a servidor.
+Estado actual y huecos importantes
+
+Contenido: Muchas páginas usan texto de ejemplo; falta contenido real (posts, descripciones, imágenes finales).
+Formularios: Sin backend ni protección (CAPTCHA, rate-limit).
+Internacionalización: Sólo selector que añade parámetro; no hay archivos traducidos.
+SEO/Performance: Faltan metatags avanzados (og:, twitter:), sitemap, compresión de imágenes, lazy-loading.
+Accesibilidad: Hay bases (aria-labels, semántica), pero requieren auditoría (foco, contraste, etiquetas formales).
+Seguridad/Privacidad: No hay aviso de cookies dinámico ni gestión de consentimiento; formularios sin tratamiento de datos.
+Recomendaciones prácticas (prioritarias)
+
+Habilitar envío de formulario: Integrar un endpoint (serverless/email API) o usar formspree/Netlify Forms.
+Añadir contenido real: Sustituir placeholders, añadir entradas en blog.html o migrar a un CMS.
+Mejorar SEO: Añadir meta tags, open graph, favicon y sitemap.xml.
+Accesibilidad: Auditar con Lighthouse o Axe y añadir atributos de foco y roles donde falten.
+Optimización: Optimizar imágenes, añadir lazy-loading y minificar CSS/JS para producción.
+Internacionalización real: Implementar ficheros de traducción o distintas rutas por idioma.
+Formas de despliegue: Sitio listo para hosting estático (GitHub Pages, Netlify, Vercel).
+¿Quieres que implemente alguna de estas mejoras ahora (p. ej. envío real del formulario, metatags SEO o integración de lazy-loading)?
+
+GPT-5 mini • 1x
