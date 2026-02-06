@@ -1,38 +1,52 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import {
+  contactMessages,
+  news,
+  activities,
+  type InsertContactMessage,
+  type InsertNewsItem,
+  type InsertActivity,
+  type NewsItem,
+  type Activity
+} from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  createContactMessage(message: InsertContactMessage): Promise<void>;
+  getNews(): Promise<NewsItem[]>;
+  getNewsItem(id: number): Promise<NewsItem | undefined>;
+  createNews(item: InsertNewsItem): Promise<NewsItem>;
+  getActivities(): Promise<Activity[]>;
+  createActivity(activity: InsertActivity): Promise<Activity>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async createContactMessage(message: InsertContactMessage): Promise<void> {
+    await db.insert(contactMessages).values(message);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getNews(): Promise<NewsItem[]> {
+    return await db.select().from(news).orderBy(desc(news.publishedAt));
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getNewsItem(id: number): Promise<NewsItem | undefined> {
+    const [item] = await db.select().from(news).where(eq(news.id, id));
+    return item;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async createNews(item: InsertNewsItem): Promise<NewsItem> {
+    const [newItem] = await db.insert(news).values(item).returning();
+    return newItem;
+  }
+
+  async getActivities(): Promise<Activity[]> {
+    return await db.select().from(activities).orderBy(desc(activities.date));
+  }
+
+  async createActivity(activity: InsertActivity): Promise<Activity> {
+    const [newActivity] = await db.insert(activities).values(activity).returning();
+    return newActivity;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
