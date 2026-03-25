@@ -60,7 +60,7 @@ export default function Contact() {
                   <ContactDetail 
                     icon={<Mail className="w-6 h-6" />}
                     title="Email"
-                    content="info@tudominio.org"
+                    content="info@alumnossolidarios.org"
                   />
                   <ContactDetail 
                     icon={<Phone className="w-6 h-6" />}
