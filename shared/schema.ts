@@ -140,6 +140,12 @@ export const orders = pgTable("orders", {
   total: numeric("total", { precision: 10, scale: 2 }).notNull(),
   promoCodeId: integer("promo_code_id").references(() => promoCodes.id),
   status: orderStatusEnum("status").notNull().default("pending"),
+  // Pickup / student info
+  isStudent: boolean("is_student").notNull().default(false),
+  studentClass: text("student_class"),
+  pickupDate: text("pickup_date"),
+  pickupTime: text("pickup_time"),
+  userConsent: boolean("user_consent").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

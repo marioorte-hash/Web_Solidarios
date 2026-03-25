@@ -2,11 +2,32 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, LayoutDashboard, Newspaper, Calendar, ShoppingBag, Tag, X, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, LayoutDashboard, Newspaper, Calendar, ShoppingBag, Tag, X, Check, Package, GraduationCap, Clock, User } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { NewsItem, Activity, Product, PromoCode } from "@shared/schema";
+
+interface AdminOrderItem {
+  productId: number;
+  productTitle: string;
+  quantity: number;
+  price: string;
+}
+interface AdminOrder {
+  id: number;
+  createdAt: string | null;
+  status: string;
+  total: string;
+  userEmail: string | null;
+  username: string | null;
+  isStudent: boolean;
+  studentClass: string | null;
+  pickupDate: string | null;
+  pickupTime: string | null;
+  userConsent: boolean;
+  items: AdminOrderItem[];
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -453,15 +474,155 @@ function PromoCodesAdmin() {
   );
 }
 
+// ── Orders Section ────────────────────────────────────────────────────────────
+
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  pending: { label: "Pendiente", color: "bg-yellow-100 text-yellow-700" },
+  paid: { label: "Pagado", color: "bg-blue-100 text-blue-700" },
+  shipped: { label: "Enviado", color: "bg-purple-100 text-purple-700" },
+  delivered: { label: "Entregado", color: "bg-green-100 text-green-700" },
+  cancelled: { label: "Cancelado", color: "bg-red-100 text-red-700" },
+};
+
+function OrdersAdmin() {
+  const { data: orders, isLoading } = useQuery<AdminOrder[]>({ queryKey: ["/api/admin/orders"] });
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const updateStatus = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      apiRequest("PUT", `/api/admin/orders/${id}/status`, { status }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/orders"] });
+      toast({ title: "Estado actualizado" });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  if (isLoading) return <div className="py-12 text-center text-muted-foreground">Cargando pedidos…</div>;
+
+  if (!orders || orders.length === 0) {
+    return (
+      <div className="py-16 text-center">
+        <Package className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+        <p className="text-muted-foreground">Aún no hay pedidos</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">{orders.length} pedido{orders.length !== 1 ? "s" : ""} en total</p>
+      {orders.map((order) => {
+        const isExpanded = expandedId === order.id;
+        const statusInfo = STATUS_LABELS[order.status] ?? { label: order.status, color: "bg-gray-100 text-gray-700" };
+        return (
+          <div key={order.id} data-testid={`order-card-${order.id}`} className="border border-border/20 rounded-xl overflow-hidden">
+            {/* Header row */}
+            <div
+              className="flex flex-wrap items-center gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => setExpandedId(isExpanded ? null : order.id)}
+            >
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <Package className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <span className="font-bold text-sm">Pedido #{order.id}</span>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <User className="w-3.5 h-3.5" />
+                <span className="truncate max-w-[180px]">{order.userEmail ?? "Invitado"}</span>
+              </div>
+
+              {order.isStudent ? (
+                <div className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full">
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  {order.studentClass ?? "Estudiante"}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
+                  <Clock className="w-3.5 h-3.5" />
+                  {order.pickupDate ? `${order.pickupDate} ${order.pickupTime ?? ""}` : "Sin hora"}
+                </div>
+              )}
+
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusInfo.color}`}>
+                {statusInfo.label}
+              </span>
+              <span className="font-bold text-primary">{parseFloat(order.total).toFixed(2)}€</span>
+
+              <select
+                data-testid={`select-order-status-${order.id}`}
+                value={order.status}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => updateStatus.mutate({ id: order.id, status: e.target.value })}
+                className="text-xs border border-border rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="pending">Pendiente</option>
+                <option value="paid">Pagado</option>
+                <option value="shipped">Enviado</option>
+                <option value="delivered">Entregado</option>
+                <option value="cancelled">Cancelado</option>
+              </select>
+            </div>
+
+            {/* Expanded items */}
+            {isExpanded && (
+              <div className="border-t border-border/20 bg-gray-50 p-4 space-y-3">
+                <div className="grid sm:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Usuario</p>
+                    <p className="font-medium">{order.username ?? "—"}</p>
+                    <p className="text-muted-foreground">{order.userEmail ?? "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Recogida</p>
+                    {order.isStudent ? (
+                      <p className="font-medium flex items-center gap-1"><GraduationCap className="w-3.5 h-3.5 text-blue-600" /> Clase: {order.studentClass}</p>
+                    ) : (
+                      <p className="font-medium">{order.pickupDate} a las {order.pickupTime}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Artículos del pedido</p>
+                  <div className="space-y-1.5">
+                    {order.items.map((item, i) => (
+                      <div key={i} className="flex justify-between text-sm bg-white rounded-lg px-3 py-2 border border-border/10">
+                        <span>{item.productTitle} <span className="text-muted-foreground">×{item.quantity}</span></span>
+                        <span className="font-medium">{(parseFloat(item.price) * item.quantity).toFixed(2)}€</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-between font-bold text-sm pt-1 border-t border-border/20">
+                  <span>Total</span>
+                  <span className="text-primary">{parseFloat(order.total).toFixed(2)}€</span>
+                </div>
+                {order.createdAt && (
+                  <p className="text-xs text-muted-foreground">Realizado: {new Date(order.createdAt).toLocaleString("es-ES")}</p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main Admin Page ───────────────────────────────────────────────────────────
 
-type Tab = "news" | "activities" | "products" | "promos";
+type Tab = "news" | "activities" | "products" | "promos" | "orders";
 
 const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "news", label: "Noticias", icon: <Newspaper className="w-5 h-5" /> },
   { id: "activities", label: "Actividades", icon: <Calendar className="w-5 h-5" /> },
   { id: "products", label: "Tienda", icon: <ShoppingBag className="w-5 h-5" /> },
   { id: "promos", label: "Códigos", icon: <Tag className="w-5 h-5" /> },
+  { id: "orders", label: "Pedidos", icon: <Package className="w-5 h-5" /> },
 ];
 
 export default function Admin() {
@@ -516,6 +677,7 @@ export default function Admin() {
           {activeTab === "activities" && <ActivitiesAdmin />}
           {activeTab === "products" && <ProductsAdmin />}
           {activeTab === "promos" && <PromoCodesAdmin />}
+          {activeTab === "orders" && <OrdersAdmin />}
         </div>
       </div>
     </div>

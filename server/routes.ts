@@ -1,6 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
-import { storage } from "./storage";
+import { storage, type AdminOrder } from "./storage";
 import { z } from "zod";
 import {
   insertUserSchema, insertNewsSchema, insertActivitySchema,
@@ -325,15 +325,33 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ─── ORDERS ──────────────────────────────────────────────────────────
   app.post("/api/orders", requireAuth, async (req, res) => {
     try {
-      const { promoCode } = z.object({ promoCode: z.string().optional() }).parse(req.body);
+      const body = z.object({
+        promoCode: z.string().optional(),
+        isStudent: z.boolean().default(false),
+        studentClass: z.string().optional(),
+        pickupDate: z.string().optional(),
+        pickupTime: z.string().optional(),
+        userConsent: z.boolean(),
+      }).parse(req.body);
+
+      if (!body.userConsent) {
+        return res.status(400).json({ message: "Debes aceptar el envío de datos para continuar" });
+      }
+      if (!body.isStudent && (!body.pickupDate || !body.pickupTime)) {
+        return res.status(400).json({ message: "Debes seleccionar fecha y hora de recogida" });
+      }
+      if (body.isStudent && !body.studentClass) {
+        return res.status(400).json({ message: "Debes indicar la clase" });
+      }
+
       const cartList = await storage.getCartItems(req.session.id);
       if (cartList.length === 0) return res.status(400).json({ message: "El carrito está vacío" });
 
       let total = cartList.reduce((sum, item) => sum + parseFloat(item.product.price as string) * item.quantity, 0);
       let promoCodeId: number | undefined;
 
-      if (promoCode) {
-        const promo = await storage.getPromoCode(promoCode);
+      if (body.promoCode) {
+        const promo = await storage.getPromoCode(body.promoCode);
         if (promo && promo.isActive) {
           total = total * (1 - promo.discount / 100);
           promoCodeId = promo.id;
@@ -341,7 +359,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       const order = await storage.createOrder(
-        { userId: req.session.userId, sessionId: req.session.id, total: total.toFixed(2), status: "pending", promoCodeId },
+        {
+          userId: req.session.userId,
+          sessionId: req.session.id,
+          total: total.toFixed(2),
+          status: "pending",
+          promoCodeId,
+          isStudent: body.isStudent,
+          studentClass: body.studentClass ?? null,
+          pickupDate: body.pickupDate ?? null,
+          pickupTime: body.pickupTime ?? null,
+          userConsent: body.userConsent,
+        },
         cartList.map(item => ({
           orderId: 0,
           productId: item.productId,
@@ -360,6 +389,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/orders", requireAuth, async (req, res) => {
     res.json(await storage.getOrdersByUser(req.session.userId!));
+  });
+
+  app.get("/api/admin/orders", requireAdmin, async (_req, res) => {
+    res.json(await storage.getAdminOrders());
+  });
+
+  app.put("/api/admin/orders/:id/status", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { status } = z.object({ status: z.enum(["pending", "paid", "shipped", "delivered", "cancelled"]) }).parse(req.body);
+      await storage.updateOrderStatus(id, status);
+      res.json({ success: true });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
   });
 
   // ─── SEARCH ──────────────────────────────────────────────────────────

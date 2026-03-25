@@ -12,6 +12,28 @@ import {
 import { eq, desc, ilike, or, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
+export interface AdminOrderItem {
+  productId: number;
+  productTitle: string;
+  quantity: number;
+  price: string;
+}
+
+export interface AdminOrder {
+  id: number;
+  createdAt: Date | null;
+  status: string;
+  total: string;
+  userEmail: string | null;
+  username: string | null;
+  isStudent: boolean;
+  studentClass: string | null;
+  pickupDate: string | null;
+  pickupTime: string | null;
+  userConsent: boolean;
+  items: AdminOrderItem[];
+}
+
 export interface IStorage {
   // Auth
   createUser(user: InsertUser): Promise<Omit<User, "password">>;
@@ -69,6 +91,8 @@ export interface IStorage {
   // Orders
   createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
   getOrdersByUser(userId: number): Promise<Order[]>;
+  getAdminOrders(): Promise<AdminOrder[]>;
+  updateOrderStatus(id: number, status: string): Promise<void>;
 
   // Search
   search(query: string): Promise<{ products: Product[]; news: NewsItem[]; activities: Activity[] }>;
@@ -274,7 +298,7 @@ export class DatabaseStorage implements IStorage {
     if (existing) {
       const [updated] = await db
         .update(cartItems)
-        .set({ quantity: existing.quantity + item.quantity })
+        .set({ quantity: existing.quantity + (item.quantity ?? 1) })
         .where(eq(cartItems.id, existing.id))
         .returning();
       return updated;
@@ -307,6 +331,51 @@ export class DatabaseStorage implements IStorage {
 
   async getOrdersByUser(userId: number): Promise<Order[]> {
     return db.select().from(orders).where(eq(orders.userId, userId)).orderBy(desc(orders.createdAt));
+  }
+
+  async getAdminOrders(): Promise<AdminOrder[]> {
+    const allOrders = await db
+      .select({
+        id: orders.id,
+        createdAt: orders.createdAt,
+        status: orders.status,
+        total: orders.total,
+        isStudent: orders.isStudent,
+        studentClass: orders.studentClass,
+        pickupDate: orders.pickupDate,
+        pickupTime: orders.pickupTime,
+        userConsent: orders.userConsent,
+        userEmail: users.email,
+        username: users.username,
+      })
+      .from(orders)
+      .leftJoin(users, eq(orders.userId, users.id))
+      .orderBy(desc(orders.createdAt));
+
+    const result: AdminOrder[] = [];
+    for (const order of allOrders) {
+      const items = await db
+        .select({
+          productId: orderItems.productId,
+          productTitle: products.title,
+          quantity: orderItems.quantity,
+          price: orderItems.price,
+        })
+        .from(orderItems)
+        .innerJoin(products, eq(orderItems.productId, products.id))
+        .where(eq(orderItems.orderId, order.id));
+
+      result.push({
+        ...order,
+        total: String(order.total),
+        items,
+      });
+    }
+    return result;
+  }
+
+  async updateOrderStatus(id: number, status: string): Promise<void> {
+    await db.update(orders).set({ status: status as "pending" | "paid" | "shipped" | "delivered" | "cancelled" }).where(eq(orders.id, id));
   }
 
   // Search
