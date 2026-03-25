@@ -65,7 +65,7 @@ export default function Contact() {
                   <ContactDetail 
                     icon={<Phone className="w-6 h-6" />}
                     title="Teléfono"
-                    content="+34 900 000 000"
+                    content="+34 620 363 285"
                   />
                   <ContactDetail 
                     icon={<MapPin className="w-6 h-6" />}

@@ -27,7 +27,7 @@ export function Footer() {
             <h3 className="text-lg font-bold mb-6 font-display text-foreground">Contacto</h3>
             <ul className="space-y-4">
               <ContactItem icon={<Mail className="w-5 h-5" />} text="info@alumnossolidarios.org" />
-              <ContactItem icon={<Phone className="w-5 h-5" />} text="+34 900 000 000" />
+              <ContactItem icon={<Phone className="w-5 h-5" />} text="+34 620 363 285" />
               <ContactItem icon={<MapPin className="w-5 h-5" />} text="Calle Ejemplo 123, Madrid, España" />
             </ul>
           </div>
