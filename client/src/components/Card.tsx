@@ -35,7 +35,7 @@ export function NewsCard({ title, summary, imageUrl, date, id }: NewsCardProps) 
         <p className="text-muted-foreground text-sm leading-relaxed mb-6 line-clamp-3 flex-grow">
           {summary}
         </p>
-        <Link href={`/news/${id}`} className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:gap-3 transition-all">
+        <Link href={`/noticias/${id}`} className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:gap-3 transition-all">
           Leer más <ArrowRight className="w-4 h-4" />
         </Link>
       </div>

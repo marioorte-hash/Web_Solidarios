@@ -15,15 +15,21 @@ import Contact from "@/pages/Contact";
 import { RazonDeSer, Apadrinamiento } from "@/pages/GenericPage";
 import { AvisoLegal, Privacidad } from "@/pages/Legal";
 import NotFound from "@/pages/not-found";
+import Auth from "@/pages/Auth";
+import Store from "@/pages/Store";
+import ProductDetail from "@/pages/ProductDetail";
+import Cart from "@/pages/Cart";
+import Admin from "@/pages/Admin";
+import Search from "@/pages/Search";
+import Orders from "@/pages/Orders";
+import NewsDetail from "@/pages/NewsDetail";
 
 // Scroll to top on route change
 function ScrollToTop() {
   const [pathname] = useLocation();
-  
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
-  
   return null;
 }
 
@@ -32,20 +38,38 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/noticias" component={News} />
-      <Route path="/blog" component={News} /> {/* Reuse News for Blog initially */}
+      <Route path="/noticias/:id" component={NewsDetail} />
+      <Route path="/blog" component={News} />
       <Route path="/actividades" component={Activities} />
-      <Route path="/agenda" component={Activities} /> {/* Reuse Activities for Agenda */}
+      <Route path="/agenda" component={Activities} />
       <Route path="/contacto" component={Contact} />
-      
+
+      {/* Auth */}
+      <Route path="/auth" component={Auth} />
+
+      {/* Store */}
+      <Route path="/tienda" component={Store} />
+      <Route path="/tienda/:id" component={ProductDetail} />
+
+      {/* Cart & Orders */}
+      <Route path="/carrito" component={Cart} />
+      <Route path="/mis-pedidos" component={Orders} />
+
+      {/* Admin */}
+      <Route path="/admin" component={Admin} />
+
+      {/* Search */}
+      <Route path="/buscar" component={Search} />
+
       {/* Static Content Pages */}
       <Route path="/razon-de-ser" component={RazonDeSer} />
       <Route path="/apadrinamiento" component={Apadrinamiento} />
-      
+
       {/* Legal */}
       <Route path="/aviso-legal" component={AvisoLegal} />
       <Route path="/privacidad" component={Privacidad} />
-      <Route path="/cookies" component={Privacidad} /> {/* Reuse Privacidad for now */}
-      
+      <Route path="/cookies" component={Privacidad} />
+
       <Route component={NotFound} />
     </Switch>
   );

@@ -1,0 +1,69 @@
+Quiero desarrollar una aplicación web completa con frontend y backend.
+
+Autenticación y usuarios:
+– Sistema de registro e inicio de sesión
+– Dos roles: administrador y usuario normal
+– El rol se guarda en la base de datos
+– El acceso y las acciones están estrictamente limitadas según rol
+
+Restricciones importantes:
+– El administrador SOLO puede gestionar:
+• Tienda
+• Noticias
+• Eventos / actividades
+– El administrador NO puede modificar otras secciones de la web (páginas informativas, estructura, estética, usuarios, etc.).
+
+Rol administrador (funciones permitidas):
+– Panel de administración limitado únicamente a tienda, noticias y eventos
+– Puede crear, editar y eliminar:
+• Noticias
+• Eventos / actividades
+• Productos de la tienda
+– En noticias y eventos puede añadir:
+• Título
+• Descripción
+• Contenido
+• Imágenes
+– En productos de tienda puede gestionar:
+• Título
+• Descripción
+• Precio
+• Categoría
+• Imágenes múltiples
+• Stock
+• Códigos promocionales (crear, activar, desactivar y definir descuentos)
+
+Usuarios normales:
+– Pueden registrarse e iniciar sesión
+– Pueden navegar por noticias y eventos
+– Pueden comprar productos
+– Pueden aplicar códigos promocionales
+– Pueden dejar reseñas y valoraciones en productos
+
+Buscador:
+– Lupa de búsqueda funcional
+– Permite buscar en productos, noticias y eventos
+
+Tienda online:
+– Carrito de la compra funcional
+– Productos con:
+• Imágenes
+• Precio
+• Categorías
+• Reseñas
+• Clasificación por estrellas
+– Preparada para integrar una pasarela de pago externa más adelante
+
+Contacto:
+– Formulario de contacto funcional
+– Al enviar el formulario debe enviarse un correo automáticamente a:
+marioorte@alumnossolidarios.org
+
+Tecnología:
+– Backend con API REST
+– Base de datos para usuarios, roles, productos, pedidos, reseñas, noticias, eventos y códigos promocionales
+– Frontend responsive
+– Código modular, claro y ampliable
+– Instrucciones para ejecutar el proyecto
+
+Genera una base funcional clara y segura, priorizando control de permisos por rol.

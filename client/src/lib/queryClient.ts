@@ -29,7 +29,16 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    // Build URL from queryKey parts
+    const url = queryKey
+      .map((part, i) => {
+        if (i === 0) return part as string;
+        return String(part);
+      })
+      .join("/")
+      .replace(/\/\//g, "/");
+
+    const res = await fetch(url, {
       credentials: "include",
     });
 
@@ -44,7 +53,7 @@ export const getQueryFn: <T>(options: {
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
+      queryFn: getQueryFn({ on401: "returnNull" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,

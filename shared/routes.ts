@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertContactMessageSchema, insertNewsSchema, insertActivitySchema, news, activities } from './schema';
+import { insertContactMessageSchema, news, activities, products } from './schema';
 
 export const api = {
   contact: {
@@ -38,6 +38,39 @@ export const api = {
         200: z.array(z.custom<typeof activities.$inferSelect>())
       }
     }
+  },
+  products: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/products',
+      responses: {
+        200: z.array(z.custom<typeof products.$inferSelect>())
+      }
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/products/:id',
+    }
+  },
+  auth: {
+    me: { method: 'GET' as const, path: '/api/auth/me' },
+    login: { method: 'POST' as const, path: '/api/auth/login' },
+    register: { method: 'POST' as const, path: '/api/auth/register' },
+    logout: { method: 'POST' as const, path: '/api/auth/logout' },
+  },
+  cart: {
+    get: { method: 'GET' as const, path: '/api/cart' },
+    add: { method: 'POST' as const, path: '/api/cart' },
+    update: { method: 'PUT' as const, path: '/api/cart/:id' },
+    remove: { method: 'DELETE' as const, path: '/api/cart/:id' },
+    clear: { method: 'DELETE' as const, path: '/api/cart' },
+  },
+  orders: {
+    create: { method: 'POST' as const, path: '/api/orders' },
+    list: { method: 'GET' as const, path: '/api/orders' },
+  },
+  search: {
+    query: { method: 'GET' as const, path: '/api/search' },
   }
 };
 
