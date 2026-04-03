@@ -5,10 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, LogIn, UserPlus, Shield } from "lucide-react";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useLogin, useRegister } from "@/hooks/use-auth";
 
@@ -26,6 +23,14 @@ const registerSchema = z.object({
   }),
 });
 
+type LoginData = z.infer<typeof loginSchema>;
+type RegisterData = z.infer<typeof registerSchema>;
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-xs text-red-500 mt-1">{message}</p>;
+}
+
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -35,17 +40,29 @@ export default function Auth() {
   const login = useLogin();
   const register = useRegister();
 
-  const loginForm = useForm<z.infer<typeof loginSchema>>({
+  const {
+    register: loginRegister,
+    handleSubmit: loginHandleSubmit,
+    formState: { errors: loginErrors },
+  } = useForm<LoginData>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
 
-  const registerForm = useForm<z.infer<typeof registerSchema>>({
+  const {
+    register: regRegister,
+    handleSubmit: regHandleSubmit,
+    watch: regWatch,
+    setValue: regSetValue,
+    formState: { errors: regErrors },
+  } = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
     defaultValues: { username: "", email: "", password: "", acceptTerms: false },
   });
 
-  const onLogin = loginForm.handleSubmit(async (data) => {
+  const acceptTermsValue = regWatch("acceptTerms");
+
+  const onLogin = loginHandleSubmit(async (data) => {
     try {
       await login.mutateAsync(data);
       toast({ title: "¡Bienvenido!", description: "Has iniciado sesión correctamente." });
@@ -55,7 +72,7 @@ export default function Auth() {
     }
   });
 
-  const onRegister = registerForm.handleSubmit(async (data) => {
+  const onRegister = regHandleSubmit(async (data) => {
     try {
       const { acceptTerms, ...registerData } = data;
       await register.mutateAsync(registerData);
@@ -65,6 +82,8 @@ export default function Auth() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   });
+
+  const inputClass = "w-full h-10 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-accent/20 pt-20 pb-12 px-4">
@@ -78,6 +97,7 @@ export default function Auth() {
           <div className="flex">
             <button
               data-testid="tab-login"
+              type="button"
               onClick={() => setIsLogin(true)}
               className={`flex-1 py-4 text-sm font-bold transition-colors ${isLogin ? "bg-primary text-white" : "bg-gray-50 text-foreground/60 hover:text-foreground"}`}
             >
@@ -85,6 +105,7 @@ export default function Auth() {
             </button>
             <button
               data-testid="tab-register"
+              type="button"
               onClick={() => setIsLogin(false)}
               className={`flex-1 py-4 text-sm font-bold transition-colors ${!isLogin ? "bg-primary text-white" : "bg-gray-50 text-foreground/60 hover:text-foreground"}`}
             >
@@ -102,58 +123,44 @@ export default function Auth() {
                   <h1 className="text-2xl font-display font-bold">¡Bienvenido de nuevo!</h1>
                   <p className="text-muted-foreground text-sm mt-1">Accede a tu cuenta</p>
                 </div>
-                <Form {...loginForm}>
-                  <form onSubmit={onLogin} className="space-y-5">
-                    <FormField
-                      control={loginForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <input
-                              data-testid="input-email"
-                              type="text"
-                              autoComplete="email"
-                              placeholder="tu@email.com"
-                              className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                <form onSubmit={onLogin} className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
+                    <input
+                      data-testid="input-email"
+                      type="text"
+                      autoComplete="email"
+                      placeholder="tu@email.com"
+                      className={inputClass}
+                      {...loginRegister("email")}
                     />
-                    <FormField
-                      control={loginForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Contraseña</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <input
-                                data-testid="input-password"
-                                type={showPassword ? "text" : "password"}
-                                autoComplete="current-password"
-                                placeholder="••••••"
-                                className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 pr-10 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                {...field}
-                              />
-                              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                              </button>
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button data-testid="button-login" type="submit" className="w-full rounded-full" disabled={login.isPending}>
-                      {login.isPending ? "Accediendo..." : "Iniciar sesión"}
-                    </Button>
-                  </form>
-                </Form>
+                    <FieldError message={loginErrors.email?.message} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Contraseña</label>
+                    <div className="relative">
+                      <input
+                        data-testid="input-password"
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="current-password"
+                        placeholder="••••••"
+                        className={`${inputClass} pr-10`}
+                        {...loginRegister("password")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <FieldError message={loginErrors.password?.message} />
+                  </div>
+                  <Button data-testid="button-login" type="submit" className="w-full rounded-full" disabled={login.isPending}>
+                    {login.isPending ? "Accediendo..." : "Iniciar sesión"}
+                  </Button>
+                </form>
               </>
             ) : (
               <>
@@ -164,111 +171,81 @@ export default function Auth() {
                   <h1 className="text-2xl font-display font-bold">Crea tu cuenta</h1>
                   <p className="text-muted-foreground text-sm mt-1">Únete a nuestra comunidad</p>
                 </div>
-                <Form {...registerForm}>
-                  <form onSubmit={onRegister} className="space-y-4">
-                    <FormField
-                      control={registerForm.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nombre de usuario</FormLabel>
-                          <FormControl>
-                            <input
-                              data-testid="input-username"
-                              type="text"
-                              autoComplete="username"
-                              placeholder="tunombre"
-                              className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                <form onSubmit={onRegister} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nombre de usuario</label>
+                    <input
+                      data-testid="input-username"
+                      type="text"
+                      autoComplete="username"
+                      placeholder="tunombre"
+                      className={inputClass}
+                      {...regRegister("username")}
                     />
-                    <FormField
-                      control={registerForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <input
-                              data-testid="input-email-register"
-                              type="text"
-                              autoComplete="email"
-                              placeholder="tu@email.com"
-                              className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                    <FieldError message={regErrors.username?.message} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
+                    <input
+                      data-testid="input-email-register"
+                      type="text"
+                      autoComplete="email"
+                      placeholder="tu@email.com"
+                      className={inputClass}
+                      {...regRegister("email")}
                     />
-                    <FormField
-                      control={registerForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Contraseña</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <input
-                                data-testid="input-password-register"
-                                type={showRegisterPassword ? "text" : "password"}
-                                autoComplete="new-password"
-                                placeholder="Mínimo 6 caracteres"
-                                className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 pr-10 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                {...field}
-                              />
-                              <button type="button" onClick={() => setShowRegisterPassword(!showRegisterPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                                {showRegisterPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                              </button>
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* Privacy & Terms */}
-                    <div className="rounded-xl bg-accent/40 border border-primary/10 p-4 space-y-3">
-                      <div className="flex items-start gap-2">
-                        <Shield className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          Al registrarte, tus datos personales (nombre, email) serán almacenados por <strong>Alumnos Solidarios</strong> con el único fin de gestionar tu cuenta y comunicaciones de la asociación. Puedes solicitar la eliminación de tus datos en cualquier momento contactando con nosotros.
-                        </p>
-                      </div>
-                      <FormField
-                        control={registerForm.control}
-                        name="acceptTerms"
-                        render={({ field }) => (
-                          <FormItem>
-                            <div className="flex items-start gap-3">
-                              <FormControl>
-                                <Checkbox
-                                  data-testid="checkbox-accept-terms"
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                  className="mt-0.5"
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm font-normal leading-relaxed cursor-pointer">
-                                Acepto que mi correo electrónico y datos sean almacenados por Alumnos Solidarios conforme a su política de privacidad y protección de datos.
-                              </FormLabel>
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                    <FieldError message={regErrors.email?.message} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Contraseña</label>
+                    <div className="relative">
+                      <input
+                        data-testid="input-password-register"
+                        type={showRegisterPassword ? "text" : "password"}
+                        autoComplete="new-password"
+                        placeholder="Mínimo 6 caracteres"
+                        className={`${inputClass} pr-10`}
+                        {...regRegister("password")}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showRegisterPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
+                    <FieldError message={regErrors.password?.message} />
+                  </div>
 
-                    <Button data-testid="button-register" type="submit" className="w-full rounded-full" disabled={register.isPending}>
-                      {register.isPending ? "Creando cuenta..." : "Registrarse"}
-                    </Button>
-                  </form>
-                </Form>
+                  {/* Privacy & Terms */}
+                  <div className="rounded-xl bg-accent/40 border border-primary/10 p-4 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Shield className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Al registrarte, tus datos personales (nombre, email) serán almacenados por <strong>Alumnos Solidarios</strong> con el único fin de gestionar tu cuenta y comunicaciones de la asociación. Puedes solicitar la eliminación de tus datos en cualquier momento contactando con nosotros.
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <input
+                        data-testid="checkbox-accept-terms"
+                        type="checkbox"
+                        id="acceptTerms"
+                        className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                        checked={acceptTermsValue}
+                        onChange={(e) => regSetValue("acceptTerms", e.target.checked, { shouldValidate: true })}
+                      />
+                      <label htmlFor="acceptTerms" className="text-sm text-gray-700 leading-relaxed cursor-pointer">
+                        Acepto que mi correo electrónico y datos sean almacenados por Alumnos Solidarios conforme a su política de privacidad y protección de datos.
+                      </label>
+                    </div>
+                    <FieldError message={regErrors.acceptTerms?.message} />
+                  </div>
+
+                  <Button data-testid="button-register" type="submit" className="w-full rounded-full" disabled={register.isPending}>
+                    {register.isPending ? "Creando cuenta..." : "Registrarse"}
+                  </Button>
+                </form>
               </>
             )}
           </div>
