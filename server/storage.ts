@@ -2,15 +2,20 @@ import { db } from "./db";
 import {
   contactMessages, news, activities, users, products, productImages,
   productReviews, promoCodes, cartItems, orders, orderItems,
+  sponsorships, activityRegistrations, internalMessages,
   type InsertContactMessage, type InsertNewsItem, type InsertActivity,
   type InsertUser, type InsertProduct, type InsertProductImage,
   type InsertProductReview, type InsertPromoCode, type InsertCartItem,
-  type InsertOrder, type InsertOrderItem,
+  type InsertOrder, type InsertOrderItem, type InsertSponsorship,
+  type InsertActivityRegistration, type InsertInternalMessage,
   type NewsItem, type Activity, type User, type Product, type ProductImage,
   type ProductReview, type PromoCode, type CartItem, type Order, type OrderItem,
+  type Sponsorship, type ActivityRegistration, type InternalMessage,
 } from "@shared/schema";
 import { eq, desc, ilike, or, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
+
+// ── Admin Types ──────────────────────────────────────────────────────────────
 
 export interface AdminOrderItem {
   productId: number;
@@ -34,6 +39,26 @@ export interface AdminOrder {
   items: AdminOrderItem[];
 }
 
+export interface AdminSponsorship extends Sponsorship {
+  userEmail: string | null;
+  username: string | null;
+}
+
+export interface AdminActivityRegistration extends ActivityRegistration {
+  userEmail: string | null;
+  username: string | null;
+  activityTitle: string;
+  activityDate: Date;
+  activityLocation: string;
+}
+
+export interface AdminMessage extends InternalMessage {
+  userEmail: string | null;
+  username: string | null;
+}
+
+// ── Storage Interface ────────────────────────────────────────────────────────
+
 export interface IStorage {
   // Auth
   createUser(user: InsertUser): Promise<Omit<User, "password">>;
@@ -41,44 +66,42 @@ export interface IStorage {
   getUserById(id: number): Promise<Omit<User, "password"> | undefined>;
   validatePassword(plain: string, hashed: string): Promise<boolean>;
 
-  // Contact
-  createContactMessage(message: InsertContactMessage): Promise<void>;
+  // Contact Messages
+  createContactMessage(msg: InsertContactMessage): Promise<void>;
 
   // News
-  getNews(): Promise<NewsItem[]>;
-  getNewsItem(id: number): Promise<NewsItem | undefined>;
-  getNewsItemBySlug(slug: string): Promise<NewsItem | undefined>;
+  getAllNews(): Promise<NewsItem[]>;
+  getNewsBySlug(slug: string): Promise<NewsItem | undefined>;
   createNews(item: InsertNewsItem): Promise<NewsItem>;
   updateNews(id: number, item: Partial<InsertNewsItem>): Promise<NewsItem | undefined>;
   deleteNews(id: number): Promise<void>;
 
   // Activities
-  getActivities(): Promise<Activity[]>;
-  getActivity(id: number): Promise<Activity | undefined>;
-  createActivity(activity: InsertActivity): Promise<Activity>;
-  updateActivity(id: number, activity: Partial<InsertActivity>): Promise<Activity | undefined>;
+  getAllActivities(): Promise<Activity[]>;
+  getActivityById(id: number): Promise<Activity | undefined>;
+  createActivity(item: InsertActivity): Promise<Activity>;
+  updateActivity(id: number, item: Partial<InsertActivity>): Promise<Activity | undefined>;
   deleteActivity(id: number): Promise<void>;
 
   // Products
-  getProducts(): Promise<Product[]>;
-  getProduct(id: number): Promise<Product | undefined>;
+  getAllProducts(activeOnly?: boolean): Promise<Product[]>;
+  getProductById(id: number): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: number): Promise<void>;
-  addProductImage(image: InsertProductImage): Promise<ProductImage>;
   getProductImages(productId: number): Promise<ProductImage[]>;
+  addProductImage(image: InsertProductImage): Promise<ProductImage>;
   deleteProductImage(id: number): Promise<void>;
 
   // Reviews
-  getProductReviews(productId: number): Promise<(ProductReview & { username: string })[]>;
-  createProductReview(review: InsertProductReview): Promise<ProductReview>;
-  getUserReviewForProduct(userId: number, productId: number): Promise<ProductReview | undefined>;
+  getProductReviews(productId: number): Promise<ProductReview[]>;
+  createReview(review: InsertProductReview): Promise<ProductReview>;
 
   // Promo Codes
   getPromoCodes(): Promise<PromoCode[]>;
   getPromoCode(code: string): Promise<PromoCode | undefined>;
   createPromoCode(promo: InsertPromoCode): Promise<PromoCode>;
-  updatePromoCode(id: number, data: Partial<InsertPromoCode>): Promise<PromoCode | undefined>;
+  updatePromoCode(id: number, promo: Partial<InsertPromoCode>): Promise<PromoCode | undefined>;
   deletePromoCode(id: number): Promise<void>;
 
   // Cart
@@ -94,9 +117,32 @@ export interface IStorage {
   getAdminOrders(): Promise<AdminOrder[]>;
   updateOrderStatus(id: number, status: string): Promise<void>;
 
+  // Sponsorships
+  getSponsorshipsByUser(userId: number): Promise<Sponsorship[]>;
+  createSponsorship(item: InsertSponsorship): Promise<Sponsorship>;
+  updateSponsorship(id: number, item: Partial<InsertSponsorship>): Promise<Sponsorship | undefined>;
+  deleteSponsorship(id: number): Promise<void>;
+  getAdminSponsorships(): Promise<AdminSponsorship[]>;
+
+  // Activity Registrations
+  getActivityRegistrationsByUser(userId: number): Promise<(ActivityRegistration & { activity: Activity })[]>;
+  createActivityRegistration(item: InsertActivityRegistration): Promise<ActivityRegistration>;
+  deleteActivityRegistration(id: number): Promise<void>;
+  isUserRegisteredForActivity(userId: number, activityId: number): Promise<boolean>;
+  getAdminActivityRegistrations(): Promise<AdminActivityRegistration[]>;
+
+  // Internal Messages
+  getMessagesByUser(userId: number): Promise<InternalMessage[]>;
+  createMessage(item: InsertInternalMessage): Promise<InternalMessage>;
+  adminReplyToMessage(id: number, reply: string): Promise<void>;
+  markMessageRead(id: number): Promise<void>;
+  getAllMessages(): Promise<AdminMessage[]>;
+
   // Search
   search(query: string): Promise<{ products: Product[]; news: NewsItem[]; activities: Activity[] }>;
 }
+
+// ── Implementation ───────────────────────────────────────────────────────────
 
 export class DatabaseStorage implements IStorage {
   // Auth
@@ -123,29 +169,24 @@ export class DatabaseStorage implements IStorage {
     return bcrypt.compare(plain, hashed);
   }
 
-  // Contact
-  async createContactMessage(message: InsertContactMessage): Promise<void> {
-    await db.insert(contactMessages).values(message);
+  // Contact Messages
+  async createContactMessage(msg: InsertContactMessage): Promise<void> {
+    await db.insert(contactMessages).values(msg);
   }
 
   // News
-  async getNews(): Promise<NewsItem[]> {
+  async getAllNews(): Promise<NewsItem[]> {
     return db.select().from(news).orderBy(desc(news.publishedAt));
   }
 
-  async getNewsItem(id: number): Promise<NewsItem | undefined> {
-    const [item] = await db.select().from(news).where(eq(news.id, id));
-    return item;
-  }
-
-  async getNewsItemBySlug(slug: string): Promise<NewsItem | undefined> {
+  async getNewsBySlug(slug: string): Promise<NewsItem | undefined> {
     const [item] = await db.select().from(news).where(eq(news.slug, slug));
     return item;
   }
 
   async createNews(item: InsertNewsItem): Promise<NewsItem> {
-    const [newItem] = await db.insert(news).values(item).returning();
-    return newItem;
+    const [created] = await db.insert(news).values(item).returning();
+    return created;
   }
 
   async updateNews(id: number, item: Partial<InsertNewsItem>): Promise<NewsItem | undefined> {
@@ -158,22 +199,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Activities
-  async getActivities(): Promise<Activity[]> {
+  async getAllActivities(): Promise<Activity[]> {
     return db.select().from(activities).orderBy(desc(activities.date));
   }
 
-  async getActivity(id: number): Promise<Activity | undefined> {
+  async getActivityById(id: number): Promise<Activity | undefined> {
     const [item] = await db.select().from(activities).where(eq(activities.id, id));
     return item;
   }
 
-  async createActivity(activity: InsertActivity): Promise<Activity> {
-    const [newActivity] = await db.insert(activities).values(activity).returning();
-    return newActivity;
+  async createActivity(item: InsertActivity): Promise<Activity> {
+    const [created] = await db.insert(activities).values(item).returning();
+    return created;
   }
 
-  async updateActivity(id: number, activity: Partial<InsertActivity>): Promise<Activity | undefined> {
-    const [updated] = await db.update(activities).set(activity).where(eq(activities.id, id)).returning();
+  async updateActivity(id: number, item: Partial<InsertActivity>): Promise<Activity | undefined> {
+    const [updated] = await db.update(activities).set(item).where(eq(activities.id, id)).returning();
     return updated;
   }
 
@@ -182,13 +223,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Products
-  async getProducts(): Promise<Product[]> {
-    return db.select().from(products).where(eq(products.isActive, true)).orderBy(desc(products.createdAt));
+  async getAllProducts(activeOnly = false): Promise<Product[]> {
+    if (activeOnly) return db.select().from(products).where(eq(products.isActive, true));
+    return db.select().from(products);
   }
 
-  async getProduct(id: number): Promise<Product | undefined> {
-    const [item] = await db.select().from(products).where(eq(products.id, id));
-    return item;
+  async getProductById(id: number): Promise<Product | undefined> {
+    const [p] = await db.select().from(products).where(eq(products.id, id));
+    return p;
   }
 
   async createProduct(product: InsertProduct): Promise<Product> {
@@ -202,7 +244,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProduct(id: number): Promise<void> {
-    await db.update(products).set({ isActive: false }).where(eq(products.id, id));
+    await db.delete(products).where(eq(products.id, id));
+  }
+
+  async getProductImages(productId: number): Promise<ProductImage[]> {
+    return db.select().from(productImages).where(eq(productImages.productId, productId));
   }
 
   async addProductImage(image: InsertProductImage): Promise<ProductImage> {
@@ -210,44 +256,18 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getProductImages(productId: number): Promise<ProductImage[]> {
-    return db.select().from(productImages).where(eq(productImages.productId, productId));
-  }
-
   async deleteProductImage(id: number): Promise<void> {
     await db.delete(productImages).where(eq(productImages.id, id));
   }
 
   // Reviews
-  async getProductReviews(productId: number): Promise<(ProductReview & { username: string })[]> {
-    const rows = await db
-      .select({
-        id: productReviews.id,
-        productId: productReviews.productId,
-        userId: productReviews.userId,
-        rating: productReviews.rating,
-        comment: productReviews.comment,
-        createdAt: productReviews.createdAt,
-        username: users.username,
-      })
-      .from(productReviews)
-      .innerJoin(users, eq(productReviews.userId, users.id))
-      .where(eq(productReviews.productId, productId))
-      .orderBy(desc(productReviews.createdAt));
-    return rows;
+  async getProductReviews(productId: number): Promise<ProductReview[]> {
+    return db.select().from(productReviews).where(eq(productReviews.productId, productId)).orderBy(desc(productReviews.createdAt));
   }
 
-  async createProductReview(review: InsertProductReview): Promise<ProductReview> {
+  async createReview(review: InsertProductReview): Promise<ProductReview> {
     const [created] = await db.insert(productReviews).values(review).returning();
     return created;
-  }
-
-  async getUserReviewForProduct(userId: number, productId: number): Promise<ProductReview | undefined> {
-    const [row] = await db
-      .select()
-      .from(productReviews)
-      .where(and(eq(productReviews.userId, userId), eq(productReviews.productId, productId)));
-    return row;
   }
 
   // Promo Codes
@@ -256,17 +276,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPromoCode(code: string): Promise<PromoCode | undefined> {
-    const [row] = await db.select().from(promoCodes).where(eq(promoCodes.code, code.toUpperCase()));
-    return row;
+    const [promo] = await db.select().from(promoCodes).where(eq(promoCodes.code, code));
+    return promo;
   }
 
   async createPromoCode(promo: InsertPromoCode): Promise<PromoCode> {
-    const [created] = await db.insert(promoCodes).values({ ...promo, code: promo.code.toUpperCase() }).returning();
+    const [created] = await db.insert(promoCodes).values(promo).returning();
     return created;
   }
 
-  async updatePromoCode(id: number, data: Partial<InsertPromoCode>): Promise<PromoCode | undefined> {
-    const [updated] = await db.update(promoCodes).set(data).where(eq(promoCodes.id, id)).returning();
+  async updatePromoCode(id: number, promo: Partial<InsertPromoCode>): Promise<PromoCode | undefined> {
+    const [updated] = await db.update(promoCodes).set(promo).where(eq(promoCodes.id, id)).returning();
     return updated;
   }
 
@@ -276,18 +296,13 @@ export class DatabaseStorage implements IStorage {
 
   // Cart
   async getCartItems(sessionId: string): Promise<(CartItem & { product: Product })[]> {
-    const rows = await db
-      .select({
-        id: cartItems.id,
-        sessionId: cartItems.sessionId,
-        productId: cartItems.productId,
-        quantity: cartItems.quantity,
-        product: products,
-      })
-      .from(cartItems)
-      .innerJoin(products, eq(cartItems.productId, products.id))
-      .where(eq(cartItems.sessionId, sessionId));
-    return rows;
+    const items = await db.select().from(cartItems).where(eq(cartItems.sessionId, sessionId));
+    const result = [];
+    for (const item of items) {
+      const [product] = await db.select().from(products).where(eq(products.id, item.productId));
+      if (product) result.push({ ...item, product });
+    }
+    return result;
   }
 
   async addToCart(item: InsertCartItem): Promise<CartItem> {
@@ -308,6 +323,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCartItem(id: number, quantity: number): Promise<CartItem | undefined> {
+    if (quantity <= 0) {
+      await db.delete(cartItems).where(eq(cartItems.id, id));
+      return undefined;
+    }
     const [updated] = await db.update(cartItems).set({ quantity }).where(eq(cartItems.id, id)).returning();
     return updated;
   }
@@ -365,17 +384,140 @@ export class DatabaseStorage implements IStorage {
         .innerJoin(products, eq(orderItems.productId, products.id))
         .where(eq(orderItems.orderId, order.id));
 
-      result.push({
-        ...order,
-        total: String(order.total),
-        items,
-      });
+      result.push({ ...order, total: String(order.total), items });
     }
     return result;
   }
 
   async updateOrderStatus(id: number, status: string): Promise<void> {
     await db.update(orders).set({ status: status as "pending" | "paid" | "shipped" | "delivered" | "cancelled" }).where(eq(orders.id, id));
+  }
+
+  // Sponsorships
+  async getSponsorshipsByUser(userId: number): Promise<Sponsorship[]> {
+    return db.select().from(sponsorships).where(eq(sponsorships.userId, userId)).orderBy(desc(sponsorships.createdAt));
+  }
+
+  async createSponsorship(item: InsertSponsorship): Promise<Sponsorship> {
+    const [created] = await db.insert(sponsorships).values(item).returning();
+    return created;
+  }
+
+  async updateSponsorship(id: number, item: Partial<InsertSponsorship>): Promise<Sponsorship | undefined> {
+    const [updated] = await db.update(sponsorships).set(item).where(eq(sponsorships.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSponsorship(id: number): Promise<void> {
+    await db.delete(sponsorships).where(eq(sponsorships.id, id));
+  }
+
+  async getAdminSponsorships(): Promise<AdminSponsorship[]> {
+    return db
+      .select({
+        id: sponsorships.id,
+        userId: sponsorships.userId,
+        childName: sponsorships.childName,
+        childAge: sponsorships.childAge,
+        country: sponsorships.country,
+        school: sponsorships.school,
+        monthlyAmount: sponsorships.monthlyAmount,
+        startDate: sponsorships.startDate,
+        notes: sponsorships.notes,
+        createdAt: sponsorships.createdAt,
+        userEmail: users.email,
+        username: users.username,
+      })
+      .from(sponsorships)
+      .leftJoin(users, eq(sponsorships.userId, users.id))
+      .orderBy(desc(sponsorships.createdAt));
+  }
+
+  // Activity Registrations
+  async getActivityRegistrationsByUser(userId: number): Promise<(ActivityRegistration & { activity: Activity })[]> {
+    const regs = await db.select().from(activityRegistrations).where(eq(activityRegistrations.userId, userId));
+    const result = [];
+    for (const reg of regs) {
+      const [activity] = await db.select().from(activities).where(eq(activities.id, reg.activityId));
+      if (activity) result.push({ ...reg, activity });
+    }
+    return result;
+  }
+
+  async createActivityRegistration(item: InsertActivityRegistration): Promise<ActivityRegistration> {
+    const [created] = await db.insert(activityRegistrations).values(item).returning();
+    return created;
+  }
+
+  async deleteActivityRegistration(id: number): Promise<void> {
+    await db.delete(activityRegistrations).where(eq(activityRegistrations.id, id));
+  }
+
+  async isUserRegisteredForActivity(userId: number, activityId: number): Promise<boolean> {
+    const [reg] = await db
+      .select()
+      .from(activityRegistrations)
+      .where(and(eq(activityRegistrations.userId, userId), eq(activityRegistrations.activityId, activityId)));
+    return !!reg;
+  }
+
+  async getAdminActivityRegistrations(): Promise<AdminActivityRegistration[]> {
+    return db
+      .select({
+        id: activityRegistrations.id,
+        userId: activityRegistrations.userId,
+        activityId: activityRegistrations.activityId,
+        notes: activityRegistrations.notes,
+        registeredAt: activityRegistrations.registeredAt,
+        userEmail: users.email,
+        username: users.username,
+        activityTitle: activities.title,
+        activityDate: activities.date,
+        activityLocation: activities.location,
+      })
+      .from(activityRegistrations)
+      .leftJoin(users, eq(activityRegistrations.userId, users.id))
+      .innerJoin(activities, eq(activityRegistrations.activityId, activities.id))
+      .orderBy(desc(activityRegistrations.registeredAt));
+  }
+
+  // Internal Messages
+  async getMessagesByUser(userId: number): Promise<InternalMessage[]> {
+    return db.select().from(internalMessages).where(eq(internalMessages.userId, userId)).orderBy(desc(internalMessages.createdAt));
+  }
+
+  async createMessage(item: InsertInternalMessage): Promise<InternalMessage> {
+    const [created] = await db.insert(internalMessages).values(item).returning();
+    return created;
+  }
+
+  async adminReplyToMessage(id: number, reply: string): Promise<void> {
+    await db.update(internalMessages).set({ adminReply: reply, repliedAt: new Date(), isRead: true }).where(eq(internalMessages.id, id));
+  }
+
+  async markMessageRead(id: number): Promise<void> {
+    await db.update(internalMessages).set({ isRead: true }).where(eq(internalMessages.id, id));
+  }
+
+  async getAllMessages(): Promise<AdminMessage[]> {
+    return db
+      .select({
+        id: internalMessages.id,
+        userId: internalMessages.userId,
+        subject: internalMessages.subject,
+        body: internalMessages.body,
+        attachmentUrl: internalMessages.attachmentUrl,
+        attachmentName: internalMessages.attachmentName,
+        isRead: internalMessages.isRead,
+        adminReply: internalMessages.adminReply,
+        repliedAt: internalMessages.repliedAt,
+        createdAt: internalMessages.createdAt,
+        userEmail: users.email,
+        username: users.username,
+      })
+      .from(internalMessages)
+      .leftJoin(users, eq(internalMessages.userId, users.id))
+      .orderBy(desc(internalMessages.createdAt));
   }
 
   // Search

@@ -23,6 +23,8 @@ import Admin from "@/pages/Admin";
 import Search from "@/pages/Search";
 import Orders from "@/pages/Orders";
 import NewsDetail from "@/pages/NewsDetail";
+import UserPanel from "@/pages/UserPanel";
+import Mensajes from "@/pages/Mensajes";
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -54,6 +56,10 @@ function Router() {
       {/* Cart & Orders */}
       <Route path="/carrito" component={Cart} />
       <Route path="/mis-pedidos" component={Orders} />
+
+      {/* User Panel & Messaging */}
+      <Route path="/mi-panel" component={UserPanel} />
+      <Route path="/mensajes" component={Mensajes} />
 
       {/* Admin */}
       <Route path="/admin" component={Admin} />

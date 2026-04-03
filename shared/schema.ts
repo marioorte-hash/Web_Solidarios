@@ -20,7 +20,7 @@ export const insertUserSchema = createInsertSchema(users).omit({ id: true, creat
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
-// Contact Messages
+// Contact Messages (legacy simple contact form)
 export const contactMessages = pgTable("contact_messages", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -35,6 +35,26 @@ export const insertContactMessageSchema = createInsertSchema(contactMessages).om
 });
 export type ContactMessage = typeof contactMessages.$inferSelect;
 export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
+
+// Internal Messages (chat system)
+export const internalMessages = pgTable("internal_messages", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  attachmentUrl: text("attachment_url"),
+  attachmentName: text("attachment_name"),
+  isRead: boolean("is_read").notNull().default(false),
+  adminReply: text("admin_reply"),
+  repliedAt: timestamp("replied_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertInternalMessageSchema = createInsertSchema(internalMessages).omit({
+  id: true, createdAt: true, isRead: true, adminReply: true, repliedAt: true,
+});
+export type InternalMessage = typeof internalMessages.$inferSelect;
+export type InsertInternalMessage = z.infer<typeof insertInternalMessageSchema>;
 
 // News
 export const news = pgTable("news", {
@@ -64,6 +84,41 @@ export const activities = pgTable("activities", {
 export const insertActivitySchema = createInsertSchema(activities).omit({ id: true });
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
+
+// Activity Registrations
+export const activityRegistrations = pgTable("activity_registrations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  activityId: integer("activity_id").notNull().references(() => activities.id, { onDelete: "cascade" }),
+  notes: text("notes"),
+  registeredAt: timestamp("registered_at").defaultNow(),
+});
+
+export const insertActivityRegistrationSchema = createInsertSchema(activityRegistrations).omit({
+  id: true, registeredAt: true,
+});
+export type ActivityRegistration = typeof activityRegistrations.$inferSelect;
+export type InsertActivityRegistration = z.infer<typeof insertActivityRegistrationSchema>;
+
+// Sponsorships (Apadrinamiento)
+export const sponsorships = pgTable("sponsorships", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  childName: text("child_name").notNull(),
+  childAge: integer("child_age"),
+  country: text("country").notNull(),
+  school: text("school"),
+  monthlyAmount: numeric("monthly_amount", { precision: 10, scale: 2 }),
+  startDate: text("start_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSponsorshipSchema = createInsertSchema(sponsorships).omit({
+  id: true, createdAt: true,
+});
+export type Sponsorship = typeof sponsorships.$inferSelect;
+export type InsertSponsorship = z.infer<typeof insertSponsorshipSchema>;
 
 // Products
 export const products = pgTable("products", {
@@ -140,7 +195,6 @@ export const orders = pgTable("orders", {
   total: numeric("total", { precision: 10, scale: 2 }).notNull(),
   promoCodeId: integer("promo_code_id").references(() => promoCodes.id),
   status: orderStatusEnum("status").notNull().default("pending"),
-  // Pickup / student info
   isStudent: boolean("is_student").notNull().default(false),
   studentClass: text("student_class"),
   pickupDate: text("pickup_date"),

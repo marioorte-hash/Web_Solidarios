@@ -2,11 +2,55 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, LayoutDashboard, Newspaper, Calendar, ShoppingBag, Tag, X, Check, Package, GraduationCap, Clock, User } from "lucide-react";
+import { Plus, Pencil, Trash2, LayoutDashboard, Newspaper, Calendar, ShoppingBag, Tag, X, Check, Package, GraduationCap, Clock, User, Heart, MessageSquare, Upload, Paperclip, Reply } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useRef } from "react";
 import type { NewsItem, Activity, Product, PromoCode } from "@shared/schema";
+
+interface AdminSponsorship {
+  id: number;
+  userId: number;
+  childName: string;
+  childAge: number | null;
+  country: string;
+  school: string | null;
+  monthlyAmount: string | null;
+  startDate: string | null;
+  notes: string | null;
+  createdAt: string | null;
+  userEmail: string | null;
+  username: string | null;
+}
+
+interface AdminActivityReg {
+  id: number;
+  userId: number;
+  activityId: number;
+  notes: string | null;
+  registeredAt: string | null;
+  userEmail: string | null;
+  username: string | null;
+  activityTitle: string;
+  activityDate: string;
+  activityLocation: string;
+}
+
+interface AdminMessageItem {
+  id: number;
+  userId: number;
+  subject: string;
+  body: string;
+  attachmentUrl: string | null;
+  attachmentName: string | null;
+  isRead: boolean;
+  adminReply: string | null;
+  repliedAt: string | null;
+  createdAt: string | null;
+  userEmail: string | null;
+  username: string | null;
+}
 
 interface AdminOrderItem {
   productId: number;
@@ -53,6 +97,28 @@ function NewsAdmin() {
   const { toast } = useToast();
   const [editing, setEditing] = useState<Partial<NewsItem> | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editing) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd });
+      if (!res.ok) throw new Error("Error al subir imagen");
+      const data = await res.json();
+      setEditing(prev => ({ ...prev, imageUrl: data.url }));
+      toast({ title: "Imagen subida" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   const upsert = useMutation({
     mutationFn: async (data: Partial<NewsItem>) => {
@@ -94,8 +160,18 @@ function NewsAdmin() {
               <input data-testid="input-news-title" value={editing.title || ""} onChange={(e) => setEditing({ ...editing, title: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">URL Imagen</label>
-              <input data-testid="input-news-image" value={editing.imageUrl || ""} onChange={(e) => setEditing({ ...editing, imageUrl: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <label className="text-sm font-medium mb-1 block">Imagen</label>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              <div className="flex gap-2">
+                <input data-testid="input-news-image" value={editing.imageUrl || ""} onChange={(e) => setEditing({ ...editing, imageUrl: e.target.value })} placeholder="URL o sube un archivo" className="flex-1 px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                  className="px-3 py-2 bg-primary/10 hover:bg-primary hover:text-white text-primary rounded-xl text-xs font-bold transition-all flex items-center gap-1 disabled:opacity-50 flex-shrink-0">
+                  <Upload className="w-3.5 h-3.5" />{uploading ? "..." : "Subir"}
+                </button>
+              </div>
+              {editing.imageUrl && (
+                <img src={editing.imageUrl} alt="" className="mt-2 h-16 w-24 object-cover rounded-lg border border-border/20" />
+              )}
             </div>
             <div className="md:col-span-2">
               <label className="text-sm font-medium mb-1 block">Resumen</label>
@@ -119,7 +195,7 @@ function NewsAdmin() {
         <div className="space-y-3">
           {items?.map((item) => (
             <div key={item.id} data-testid={`admin-news-${item.id}`} className="bg-white rounded-xl border border-border/20 p-4 flex items-center gap-4">
-              <img src={`${item.imageUrl}?w=60&h=60&fit=crop&auto=format`} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+              <img src={item.imageUrl.startsWith("/") ? item.imageUrl : `${item.imageUrl}?w=60&h=60&fit=crop&auto=format`} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm line-clamp-1">{item.title}</p>
                 <p className="text-xs text-muted-foreground line-clamp-1">{item.summary}</p>
@@ -613,9 +689,239 @@ function OrdersAdmin() {
   );
 }
 
+// ── Sponsorships Admin ────────────────────────────────────────────────────────
+
+function SponsorshipsAdmin() {
+  const { data: items, isLoading } = useQuery<AdminSponsorship[]>({ queryKey: ["/api/admin/sponsorships"] });
+
+  if (isLoading) return <div className="py-12 text-center text-muted-foreground">Cargando...</div>;
+
+  if (!items || items.length === 0) {
+    return (
+      <div className="py-16 text-center">
+        <Heart className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+        <p className="text-muted-foreground">Aún no hay apadrinamientos registrados</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="text-xl font-display font-bold mb-6">Apadrinamientos</h2>
+      <p className="text-sm text-muted-foreground mb-4">{items.length} apadrinamiento{items.length !== 1 ? "s" : ""}</p>
+      <div className="space-y-3">
+        {items.map((item) => (
+          <div key={item.id} data-testid={`admin-sponsorship-${item.id}`}
+            className="bg-white border border-border/20 rounded-xl p-4 flex items-start gap-4">
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+              <Heart className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 items-baseline">
+                <span className="font-semibold">{item.childName}</span>
+                {item.childAge && <span className="text-sm text-muted-foreground">{item.childAge} años</span>}
+                <span className="text-sm text-muted-foreground">{item.country}</span>
+                {item.monthlyAmount && <span className="text-sm font-semibold text-primary">{parseFloat(item.monthlyAmount).toFixed(2)}€/mes</span>}
+              </div>
+              {item.school && <p className="text-xs text-muted-foreground mt-0.5">Escuela: {item.school}</p>}
+              <p className="text-xs text-muted-foreground mt-1">
+                Socio: <span className="font-medium">{item.username ?? "—"}</span> · {item.userEmail ?? "—"}
+              </p>
+              {item.notes && <p className="text-xs text-muted-foreground italic mt-0.5">"{item.notes}"</p>}
+            </div>
+            {item.startDate && (
+              <span className="text-xs text-muted-foreground flex-shrink-0">Desde {item.startDate}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Activity Registrations Admin ─────────────────────────────────────────────
+
+function ActivityRegsAdmin() {
+  const { data: items, isLoading } = useQuery<AdminActivityReg[]>({ queryKey: ["/api/admin/activity-registrations"] });
+
+  if (isLoading) return <div className="py-12 text-center text-muted-foreground">Cargando...</div>;
+
+  if (!items || items.length === 0) {
+    return (
+      <div className="py-16 text-center">
+        <Calendar className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+        <p className="text-muted-foreground">Aún no hay inscripciones</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="text-xl font-display font-bold mb-6">Inscripciones a actividades</h2>
+      <p className="text-sm text-muted-foreground mb-4">{items.length} inscripción{items.length !== 1 ? "es" : ""}</p>
+      <div className="space-y-3">
+        {items.map((item) => (
+          <div key={item.id} data-testid={`admin-activity-reg-${item.id}`}
+            className="bg-white border border-border/20 rounded-xl p-4 flex items-start gap-4">
+            <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0">
+              <Calendar className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold">{item.activityTitle}</p>
+              <p className="text-sm text-muted-foreground">
+                {new Date(item.activityDate).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })} · {item.activityLocation}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Socio: <span className="font-medium">{item.username ?? "—"}</span> · {item.userEmail ?? "—"}
+              </p>
+              {item.notes && <p className="text-xs text-muted-foreground italic mt-0.5">Nota: "{item.notes}"</p>}
+            </div>
+            {item.registeredAt && (
+              <span className="text-xs text-muted-foreground flex-shrink-0">
+                {new Date(item.registeredAt).toLocaleDateString("es-ES")}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Messages Admin ────────────────────────────────────────────────────────────
+
+function MessagesAdmin() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { data: items, isLoading } = useQuery<AdminMessageItem[]>({ queryKey: ["/api/admin/messages"] });
+  const [replyingId, setReplyingId] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const reply = useMutation({
+    mutationFn: ({ id, text }: { id: number; text: string }) =>
+      apiRequest("PUT", `/api/admin/messages/${id}/reply`, { reply: text }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/messages"] });
+      setReplyingId(null);
+      setReplyText("");
+      toast({ title: "Respuesta enviada" });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const markRead = useMutation({
+    mutationFn: (id: number) => apiRequest("PUT", `/api/admin/messages/${id}/read`, {}),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/admin/messages"] }),
+  });
+
+  if (isLoading) return <div className="py-12 text-center text-muted-foreground">Cargando...</div>;
+
+  if (!items || items.length === 0) {
+    return (
+      <div className="py-16 text-center">
+        <MessageSquare className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+        <p className="text-muted-foreground">Aún no hay mensajes</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="text-xl font-display font-bold mb-6">Mensajes</h2>
+      <p className="text-sm text-muted-foreground mb-4">{items.filter(m => !m.isRead).length} sin leer · {items.length} total</p>
+      <div className="space-y-3">
+        {items.map((msg) => {
+          const isOpen = expandedId === msg.id;
+          const isReplying = replyingId === msg.id;
+          return (
+            <div key={msg.id} data-testid={`admin-message-${msg.id}`}
+              className={`border rounded-xl overflow-hidden ${!msg.isRead ? "border-primary/30 bg-primary/5" : "border-border/20 bg-white"}`}>
+              <button
+                className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors text-left"
+                onClick={() => {
+                  setExpandedId(isOpen ? null : msg.id);
+                  if (!msg.isRead) markRead.mutate(msg.id);
+                }}
+              >
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.adminReply ? "bg-green-100" : "bg-primary/10"}`}>
+                  <MessageSquare className={`w-4 h-4 ${msg.adminReply ? "text-green-600" : "text-primary"}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm truncate">{msg.subject}</span>
+                    {!msg.isRead && <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />}
+                    {msg.adminReply && <span className="text-xs text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded-full flex-shrink-0">Respondido</span>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{msg.username ?? "—"} · {msg.userEmail ?? "—"}</p>
+                </div>
+                {msg.createdAt && <span className="text-xs text-muted-foreground flex-shrink-0">{new Date(msg.createdAt).toLocaleDateString("es-ES")}</span>}
+              </button>
+
+              {isOpen && (
+                <div className="border-t border-border/20 p-4 space-y-3">
+                  <p className="text-sm whitespace-pre-wrap">{msg.body}</p>
+                  {msg.attachmentUrl && (
+                    <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-primary font-semibold hover:underline">
+                      <Paperclip className="w-3.5 h-3.5" />{msg.attachmentName || "Ver adjunto"}
+                    </a>
+                  )}
+                  {msg.adminReply && (
+                    <div className="bg-green-50 border border-green-100 rounded-xl p-3">
+                      <p className="text-xs font-semibold text-green-700 mb-1 flex items-center gap-1">
+                        <Reply className="w-3.5 h-3.5" /> Tu respuesta
+                      </p>
+                      <p className="text-sm whitespace-pre-wrap">{msg.adminReply}</p>
+                    </div>
+                  )}
+                  {!msg.adminReply && (
+                    isReplying ? (
+                      <div className="space-y-2">
+                        <textarea
+                          data-testid={`textarea-reply-${msg.id}`}
+                          value={replyText}
+                          onChange={e => setReplyText(e.target.value)}
+                          rows={3}
+                          className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                          placeholder="Escribe tu respuesta..."
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={() => { setReplyingId(null); setReplyText(""); }}
+                            className="flex-1 py-2 rounded-xl border border-border text-xs font-semibold hover:bg-gray-50 transition-colors">
+                            Cancelar
+                          </button>
+                          <button
+                            data-testid={`button-send-reply-${msg.id}`}
+                            onClick={() => reply.mutate({ id: msg.id, text: replyText })}
+                            disabled={reply.isPending || !replyText.trim()}
+                            className="flex-1 btn-primary text-xs py-2 disabled:opacity-50">
+                            {reply.isPending ? "Enviando..." : "Enviar respuesta"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        data-testid={`button-reply-${msg.id}`}
+                        onClick={() => setReplyingId(msg.id)}
+                        className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
+                        <Reply className="w-4 h-4" /> Responder
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Admin Page ───────────────────────────────────────────────────────────
 
-type Tab = "news" | "activities" | "products" | "promos" | "orders";
+type Tab = "news" | "activities" | "products" | "promos" | "orders" | "sponsorships" | "activity-regs" | "messages";
 
 const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "news", label: "Noticias", icon: <Newspaper className="w-5 h-5" /> },
@@ -623,6 +929,9 @@ const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "products", label: "Tienda", icon: <ShoppingBag className="w-5 h-5" /> },
   { id: "promos", label: "Códigos", icon: <Tag className="w-5 h-5" /> },
   { id: "orders", label: "Pedidos", icon: <Package className="w-5 h-5" /> },
+  { id: "sponsorships", label: "Apadrinamientos", icon: <Heart className="w-5 h-5" /> },
+  { id: "activity-regs", label: "Inscripciones", icon: <User className="w-5 h-5" /> },
+  { id: "messages", label: "Mensajes", icon: <MessageSquare className="w-5 h-5" /> },
 ];
 
 export default function Admin() {
@@ -678,6 +987,9 @@ export default function Admin() {
           {activeTab === "products" && <ProductsAdmin />}
           {activeTab === "promos" && <PromoCodesAdmin />}
           {activeTab === "orders" && <OrdersAdmin />}
+          {activeTab === "sponsorships" && <SponsorshipsAdmin />}
+          {activeTab === "activity-regs" && <ActivityRegsAdmin />}
+          {activeTab === "messages" && <MessagesAdmin />}
         </div>
       </div>
     </div>

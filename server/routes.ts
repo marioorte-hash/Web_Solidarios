@@ -2,26 +2,64 @@ import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import { storage, type AdminOrder } from "./storage";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import {
   insertUserSchema, insertNewsSchema, insertActivitySchema,
   insertProductSchema, insertProductImageSchema, insertProductReviewSchema,
   insertPromoCodeSchema, insertContactMessageSchema,
+  insertSponsorshipSchema, insertActivityRegistrationSchema, insertInternalMessageSchema,
 } from "@shared/schema";
 
-// Middleware: require authenticated user
+// ── File Upload Setup ────────────────────────────────────────────────────────
+
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const fileStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage: fileStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
+
+// ── Middleware ───────────────────────────────────────────────────────────────
+
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) return res.status(401).json({ message: "No autenticado" });
   next();
 }
 
-// Middleware: require admin role
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) return res.status(401).json({ message: "No autenticado" });
   if (req.session.userRole !== "admin") return res.status(403).json({ message: "Acceso denegado" });
   next();
 }
 
+// ── Routes ───────────────────────────────────────────────────────────────────
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
+
+  // Serve uploaded files statically
+  app.use("/uploads", (req, res, next) => {
+    const filePath = path.join(uploadsDir, path.basename(req.path));
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      next();
+    }
+  });
 
   // ─── AUTH ───────────────────────────────────────────────────────────
   app.post("/api/auth/register", async (req, res) => {
@@ -30,12 +68,19 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const existing = await storage.getUserByEmail(input.email);
       if (existing) return res.status(400).json({ message: "El email ya está en uso" });
       const user = await storage.createUser(input);
-      req.session.userId = user.id;
-      req.session.userRole = user.role;
+      await new Promise<void>((resolve, reject) => {
+        req.session.userId = user.id;
+        req.session.userRole = user.role;
+        req.session.save((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
       res.json(user);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
-      res.status(500).json({ message: "Error interno" });
+      console.error("Register error:", err);
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   });
 
@@ -46,8 +91,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!user) return res.status(401).json({ message: "Credenciales incorrectas" });
       const valid = await storage.validatePassword(password, user.password);
       if (!valid) return res.status(401).json({ message: "Credenciales incorrectas" });
-      req.session.userId = user.id;
-      req.session.userRole = user.role;
+      await new Promise<void>((resolve, reject) => {
+        req.session.userId = user.id;
+        req.session.userRole = user.role;
+        req.session.save((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
       const { password: _, ...safeUser } = user;
       res.json(safeUser);
     } catch (err) {
@@ -67,7 +118,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(user);
   });
 
-  // ─── CONTACT ────────────────────────────────────────────────────────
+  // ─── FILE UPLOAD ─────────────────────────────────────────────────────
+  app.post("/api/upload", requireAdmin, upload.single("file"), (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "No se recibió ningún archivo" });
+    const url = `/uploads/${req.file.filename}`;
+    res.json({ url, filename: req.file.originalname });
+  });
+
+  // For message attachments (any authenticated user)
+  app.post("/api/upload/attachment", requireAuth, upload.single("file"), (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "No se recibió ningún archivo" });
+    const url = `/uploads/${req.file.filename}`;
+    res.json({ url, filename: req.file.originalname });
+  });
+
+  // ─── CONTACT (legacy) ────────────────────────────────────────────────
   app.post("/api/contact", async (req, res) => {
     try {
       const input = insertContactMessageSchema.parse(req.body);
@@ -81,14 +146,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ─── NEWS ───────────────────────────────────────────────────────────
   app.get("/api/news", async (_req, res) => {
-    res.json(await storage.getNews());
+    res.json(await storage.getAllNews());
   });
 
   app.get("/api/news/:id", async (req, res) => {
     const id = Number(req.params.id);
     const item = isNaN(id)
-      ? await storage.getNewsItemBySlug(req.params.id)
-      : await storage.getNewsItem(id);
+      ? await storage.getNewsBySlug(req.params.id)
+      : await storage.getNewsBySlug(req.params.id) ?? (await storage.getAllNews()).find(n => n.id === id);
     if (!item) return res.status(404).json({ message: "No encontrado" });
     res.json(item);
   });
@@ -122,11 +187,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ─── ACTIVITIES ─────────────────────────────────────────────────────
   app.get("/api/activities", async (_req, res) => {
-    res.json(await storage.getActivities());
+    res.json(await storage.getAllActivities());
   });
 
   app.get("/api/activities/:id", async (req, res) => {
-    const item = await storage.getActivity(Number(req.params.id));
+    const item = await storage.getActivityById(Number(req.params.id));
     if (!item) return res.status(404).json({ message: "No encontrado" });
     res.json(item);
   });
@@ -158,13 +223,144 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
+  // ─── ACTIVITY REGISTRATIONS ─────────────────────────────────────────
+  app.get("/api/my-activities", requireAuth, async (req, res) => {
+    res.json(await storage.getActivityRegistrationsByUser(req.session.userId!));
+  });
+
+  app.post("/api/activity-registrations", requireAuth, async (req, res) => {
+    try {
+      const { activityId, notes } = z.object({
+        activityId: z.number().int(),
+        notes: z.string().optional(),
+      }).parse(req.body);
+      const already = await storage.isUserRegisteredForActivity(req.session.userId!, activityId);
+      if (already) return res.status(400).json({ message: "Ya estás apuntado a esta actividad" });
+      const reg = await storage.createActivityRegistration({
+        userId: req.session.userId!,
+        activityId,
+        notes: notes ?? null,
+      });
+      res.json(reg);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
+  app.delete("/api/activity-registrations/:id", requireAuth, async (req, res) => {
+    await storage.deleteActivityRegistration(Number(req.params.id));
+    res.json({ success: true });
+  });
+
+  app.get("/api/admin/activity-registrations", requireAdmin, async (_req, res) => {
+    res.json(await storage.getAdminActivityRegistrations());
+  });
+
+  // ─── SPONSORSHIPS ────────────────────────────────────────────────────
+  app.get("/api/my-sponsorships", requireAuth, async (req, res) => {
+    res.json(await storage.getSponsorshipsByUser(req.session.userId!));
+  });
+
+  app.post("/api/sponsorships", requireAuth, async (req, res) => {
+    try {
+      const input = insertSponsorshipSchema.parse({ ...req.body, userId: req.session.userId });
+      const item = await storage.createSponsorship(input);
+      res.json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
+  app.put("/api/sponsorships/:id", requireAuth, async (req, res) => {
+    try {
+      const input = insertSponsorshipSchema.partial().omit({ userId: true } as any).parse(req.body);
+      const updated = await storage.updateSponsorship(Number(req.params.id), input);
+      if (!updated) return res.status(404).json({ message: "No encontrado" });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
+  app.delete("/api/sponsorships/:id", requireAuth, async (req, res) => {
+    await storage.deleteSponsorship(Number(req.params.id));
+    res.json({ success: true });
+  });
+
+  app.get("/api/admin/sponsorships", requireAdmin, async (_req, res) => {
+    res.json(await storage.getAdminSponsorships());
+  });
+
+  // Admin can also update sponsorships
+  app.put("/api/admin/sponsorships/:id", requireAdmin, async (req, res) => {
+    try {
+      const input = insertSponsorshipSchema.partial().parse(req.body);
+      const updated = await storage.updateSponsorship(Number(req.params.id), input);
+      if (!updated) return res.status(404).json({ message: "No encontrado" });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
+  // ─── INTERNAL MESSAGES ───────────────────────────────────────────────
+  app.get("/api/my-messages", requireAuth, async (req, res) => {
+    res.json(await storage.getMessagesByUser(req.session.userId!));
+  });
+
+  app.post("/api/messages", requireAuth, async (req, res) => {
+    try {
+      const { subject, body, attachmentUrl, attachmentName } = z.object({
+        subject: z.string().min(1),
+        body: z.string().min(1),
+        attachmentUrl: z.string().optional(),
+        attachmentName: z.string().optional(),
+      }).parse(req.body);
+      const msg = await storage.createMessage({
+        userId: req.session.userId!,
+        subject,
+        body,
+        attachmentUrl: attachmentUrl ?? null,
+        attachmentName: attachmentName ?? null,
+      });
+      res.json(msg);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
+  app.get("/api/admin/messages", requireAdmin, async (_req, res) => {
+    res.json(await storage.getAllMessages());
+  });
+
+  app.put("/api/admin/messages/:id/reply", requireAdmin, async (req, res) => {
+    try {
+      const { reply } = z.object({ reply: z.string().min(1) }).parse(req.body);
+      await storage.adminReplyToMessage(Number(req.params.id), reply);
+      res.json({ success: true });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
+  app.put("/api/admin/messages/:id/read", requireAdmin, async (req, res) => {
+    await storage.markMessageRead(Number(req.params.id));
+    res.json({ success: true });
+  });
+
   // ─── PRODUCTS ───────────────────────────────────────────────────────
   app.get("/api/products", async (_req, res) => {
-    res.json(await storage.getProducts());
+    res.json(await storage.getAllProducts());
   });
 
   app.get("/api/products/:id", async (req, res) => {
-    const product = await storage.getProduct(Number(req.params.id));
+    const product = await storage.getProductById(Number(req.params.id));
     if (!product) return res.status(404).json({ message: "No encontrado" });
     const images = await storage.getProductImages(product.id);
     res.json({ ...product, images });
@@ -219,15 +415,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/products/:id/reviews", requireAuth, async (req, res) => {
     try {
-      const existing = await storage.getUserReviewForProduct(req.session.userId!, Number(req.params.id));
-      if (existing) return res.status(400).json({ message: "Ya has valorado este producto" });
       const input = insertProductReviewSchema.parse({
         ...req.body,
         productId: Number(req.params.id),
         userId: req.session.userId,
       });
       if (input.rating < 1 || input.rating > 5) return res.status(400).json({ message: "La valoración debe ser entre 1 y 5" });
-      res.json(await storage.createProductReview(input));
+      res.json(await storage.createReview(input));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       res.status(500).json({ message: "Error interno" });
@@ -245,7 +439,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const promo = await storage.getPromoCode(code);
       if (!promo || !promo.isActive) return res.status(404).json({ message: "Código no válido o inactivo" });
       res.json({ id: promo.id, code: promo.code, discount: promo.discount });
-    } catch (err) {
+    } catch {
       res.status(500).json({ message: "Error interno" });
     }
   });
@@ -277,18 +471,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
-  // ─── CART ────────────────────────────────────────────────────────────
+  // ─── CART ───────────────────────────────────────────────────────────
   app.get("/api/cart", async (req, res) => {
-    const sessionId = req.session.id;
-    res.json(await storage.getCartItems(sessionId));
+    res.json(await storage.getCartItems(req.session.id));
   });
 
   app.post("/api/cart", async (req, res) => {
     try {
-      const { productId, quantity } = z.object({ productId: z.number(), quantity: z.number().min(1).default(1) }).parse(req.body);
-      const product = await storage.getProduct(productId);
-      if (!product) return res.status(404).json({ message: "Producto no encontrado" });
-      if (product.stock < quantity) return res.status(400).json({ message: "Stock insuficiente" });
+      const { productId, quantity } = z.object({
+        productId: z.number().int(),
+        quantity: z.number().int().min(1).default(1),
+      }).parse(req.body);
       const item = await storage.addToCart({ sessionId: req.session.id, productId, quantity });
       res.json(item);
     } catch (err) {
@@ -299,13 +492,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/cart/:id", async (req, res) => {
     try {
-      const { quantity } = z.object({ quantity: z.number().min(0) }).parse(req.body);
-      if (quantity === 0) {
-        await storage.removeFromCart(Number(req.params.id));
-        return res.json({ success: true });
-      }
-      const updated = await storage.updateCartItem(Number(req.params.id), quantity);
-      res.json(updated);
+      const { quantity } = z.object({ quantity: z.number().int() }).parse(req.body);
+      const item = await storage.updateCartItem(Number(req.params.id), quantity);
+      res.json(item ?? { deleted: true });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       res.status(500).json({ message: "Error interno" });
@@ -397,9 +586,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/admin/orders/:id/status", requireAdmin, async (req, res) => {
     try {
-      const id = Number(req.params.id);
       const { status } = z.object({ status: z.enum(["pending", "paid", "shipped", "delivered", "cancelled"]) }).parse(req.body);
-      await storage.updateOrderStatus(id, status);
+      await storage.updateOrderStatus(Number(req.params.id), status);
       res.json({ success: true });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -409,30 +597,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ─── SEARCH ──────────────────────────────────────────────────────────
   app.get("/api/search", async (req, res) => {
-    const { q } = z.object({ q: z.string().min(1) }).parse(req.query);
-    res.json(await storage.search(q));
+    try {
+      const { q } = z.object({ q: z.string().min(1) }).parse(req.query);
+      res.json(await storage.search(q));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
   });
-
-  // ─── SEED DATA ───────────────────────────────────────────────────────
-  const seedData = async () => {
-    const newsItems = await storage.getNews();
-    if (newsItems.length === 0) {
-      await storage.createNews({ title: "Inauguración del nuevo curso", slug: "inauguracion-curso-2026", summary: "Damos la bienvenida a todos los alumnos a un nuevo año lleno de aprendizaje y solidaridad.", content: "Estamos emocionados de comenzar este nuevo ciclo. Este año hemos preparado nuevas actividades y proyectos que permitirán a nuestros estudiantes crecer tanto personal como académicamente. ¡Bienvenidos a todos!", imageUrl: "https://images.unsplash.com/photo-1509062522246-3755977927d7" });
-      await storage.createNews({ title: "Campaña de recolección", slug: "campana-recoleccion-2026", summary: "Ayúdanos a recolectar materiales para las escuelas más necesitadas.", content: "Participa en nuestra campaña anual de recolección de materiales escolares. Cada cuaderno, lápiz y mochila que donas llega directamente a un niño que lo necesita. Juntos hacemos posible que ningún niño se quede sin estudiar por falta de recursos.", imageUrl: "https://images.unsplash.com/photo-1488521787991-ed7bbaae773c" });
-    }
-    const activitiesItems = await storage.getActivities();
-    if (activitiesItems.length === 0) {
-      await storage.createActivity({ title: "Taller de Arte Infantil", description: "Un espacio para que los niños expresen su creatividad.", date: new Date("2026-04-15"), location: "Centro Cultural", imageUrl: "https://images.unsplash.com/photo-1544776193-adeb74701485" });
-      await storage.createActivity({ title: "Carrera Solidaria", description: "Corre por una buena causa. Todo lo recaudado será donado.", date: new Date("2026-05-10"), location: "Parque Central", imageUrl: "https://images.unsplash.com/photo-1461896836934-ffe607ba0197" });
-    }
-    const productsItems = await storage.getProducts();
-    if (productsItems.length === 0) {
-      await storage.createProduct({ title: "Camiseta Solidaria", description: "Camiseta oficial de Alumnos Solidarios. Con cada compra apoyas nuestros proyectos educativos.", price: "15.00", category: "Ropa", stock: 50, imageUrl: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab", isActive: true });
-      await storage.createProduct({ title: "Bolsa Ecológica", description: "Bolsa reutilizable con nuestro logo. Perfecta para el día a día y respetuosa con el medio ambiente.", price: "8.00", category: "Accesorios", stock: 100, imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe", isActive: true });
-      await storage.createProduct({ title: "Pack Solidario Escolar", description: "Pack completo con material escolar para apoyar a los más pequeños.", price: "25.00", category: "Material Escolar", stock: 30, imageUrl: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6", isActive: true });
-    }
-  };
-  seedData().catch(console.error);
 
   return httpServer;
 }

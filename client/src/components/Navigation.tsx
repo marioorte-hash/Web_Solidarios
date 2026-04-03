@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Search, ShoppingCart, Globe, User, LogOut, LayoutDashboard } from "lucide-react";
+import { Menu, X, Search, ShoppingCart, Globe, User, LogOut, LayoutDashboard, Heart, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "@assets/logo.png";
 import { useAuth, useLogout } from "@/hooks/use-auth";
