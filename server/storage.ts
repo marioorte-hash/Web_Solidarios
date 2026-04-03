@@ -2,15 +2,17 @@ import { db } from "./db";
 import {
   contactMessages, news, activities, users, products, productImages,
   productReviews, promoCodes, cartItems, orders, orderItems,
-  sponsorships, activityRegistrations, internalMessages,
+  sponsorships, activityRegistrations, internalMessages, sponsorshipFormFields,
   type InsertContactMessage, type InsertNewsItem, type InsertActivity,
   type InsertUser, type InsertProduct, type InsertProductImage,
   type InsertProductReview, type InsertPromoCode, type InsertCartItem,
   type InsertOrder, type InsertOrderItem, type InsertSponsorship,
   type InsertActivityRegistration, type InsertInternalMessage,
+  type InsertSponsorshipFormField,
   type NewsItem, type Activity, type User, type Product, type ProductImage,
   type ProductReview, type PromoCode, type CartItem, type Order, type OrderItem,
   type Sponsorship, type ActivityRegistration, type InternalMessage,
+  type SponsorshipFormField,
 } from "@shared/schema";
 import { eq, desc, ilike, or, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
@@ -116,6 +118,12 @@ export interface IStorage {
   getOrdersByUser(userId: number): Promise<Order[]>;
   getAdminOrders(): Promise<AdminOrder[]>;
   updateOrderStatus(id: number, status: string): Promise<void>;
+
+  // Sponsorship Form Fields
+  getSponsorshipFormFields(): Promise<SponsorshipFormField[]>;
+  createSponsorshipFormField(field: InsertSponsorshipFormField): Promise<SponsorshipFormField>;
+  updateSponsorshipFormField(id: number, field: Partial<InsertSponsorshipFormField>): Promise<SponsorshipFormField | undefined>;
+  deleteSponsorshipFormField(id: number): Promise<void>;
 
   // Sponsorships
   getSponsorshipsByUser(userId: number): Promise<Sponsorship[]>;
@@ -399,6 +407,22 @@ export class DatabaseStorage implements IStorage {
     await db.update(orders).set({ status: status as "pending" | "paid" | "shipped" | "delivered" | "cancelled" }).where(eq(orders.id, id));
   }
 
+  // Sponsorship Form Fields
+  async getSponsorshipFormFields(): Promise<SponsorshipFormField[]> {
+    return db.select().from(sponsorshipFormFields).orderBy(sponsorshipFormFields.sortOrder);
+  }
+  async createSponsorshipFormField(field: InsertSponsorshipFormField): Promise<SponsorshipFormField> {
+    const [created] = await db.insert(sponsorshipFormFields).values(field).returning();
+    return created;
+  }
+  async updateSponsorshipFormField(id: number, field: Partial<InsertSponsorshipFormField>): Promise<SponsorshipFormField | undefined> {
+    const [updated] = await db.update(sponsorshipFormFields).set(field).where(eq(sponsorshipFormFields.id, id)).returning();
+    return updated;
+  }
+  async deleteSponsorshipFormField(id: number): Promise<void> {
+    await db.delete(sponsorshipFormFields).where(eq(sponsorshipFormFields.id, id));
+  }
+
   // Sponsorships
   async getSponsorshipsByUser(userId: number): Promise<Sponsorship[]> {
     return db.select().from(sponsorships).where(eq(sponsorships.userId, userId)).orderBy(desc(sponsorships.createdAt));
@@ -430,6 +454,7 @@ export class DatabaseStorage implements IStorage {
         monthlyAmount: sponsorships.monthlyAmount,
         startDate: sponsorships.startDate,
         notes: sponsorships.notes,
+        customResponses: sponsorships.customResponses,
         createdAt: sponsorships.createdAt,
         userEmail: users.email,
         username: users.username,

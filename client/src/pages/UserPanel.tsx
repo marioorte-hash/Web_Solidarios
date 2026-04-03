@@ -11,7 +11,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Activity, Sponsorship, ActivityRegistration, InternalMessage } from "@shared/schema";
+import type { Activity, Sponsorship, ActivityRegistration, InternalMessage, SponsorshipFormField } from "@shared/schema";
 
 type UserActivityReg = ActivityRegistration & { activity: Activity };
 
@@ -31,6 +31,13 @@ function SponsorshipForm({ onClose, onSaved, existing }: {
   onClose: () => void; onSaved: () => void; existing?: Sponsorship;
 }) {
   const { toast } = useToast();
+  const { data: customFields } = useQuery<SponsorshipFormField[]>({ queryKey: ["/api/sponsorship-form-fields"] });
+  const activeFields = (customFields ?? []).filter(f => f.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const existingResponses: Record<string, string> = existing?.customResponses
+    ? (() => { try { return JSON.parse(existing.customResponses!); } catch { return {}; } })()
+    : {};
+
   const [form, setForm] = useState({
     childName: existing?.childName ?? "",
     childAge: existing?.childAge?.toString() ?? "",
@@ -40,14 +47,24 @@ function SponsorshipForm({ onClose, onSaved, existing }: {
     startDate: existing?.startDate ?? "",
     notes: existing?.notes ?? "",
   });
+  const [customResponses, setCustomResponses] = useState<Record<string, string>>(existingResponses);
   const [saving, setSaving] = useState(false);
+
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
+  const setCustom = (fieldId: number, value: string) =>
+    setCustomResponses(r => ({ ...r, [fieldId]: value }));
 
   const handleSave = async () => {
     if (!form.childName.trim() || !form.country.trim()) {
       toast({ title: "Campos requeridos", description: "Nombre del niño y país son obligatorios", variant: "destructive" });
       return;
+    }
+    for (const field of activeFields) {
+      if (field.required && !customResponses[field.id]?.trim()) {
+        toast({ title: "Campo obligatorio", description: `"${field.label}" es obligatorio`, variant: "destructive" });
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -59,6 +76,7 @@ function SponsorshipForm({ onClose, onSaved, existing }: {
         monthlyAmount: form.monthlyAmount || undefined,
         startDate: form.startDate || undefined,
         notes: form.notes || undefined,
+        customResponses: Object.keys(customResponses).length > 0 ? JSON.stringify(customResponses) : undefined,
       };
       if (existing) {
         await apiRequest("PUT", `/api/sponsorships/${existing.id}`, body);
@@ -115,6 +133,50 @@ function SponsorshipForm({ onClose, onSaved, existing }: {
             className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
             placeholder="Observaciones sobre el apadrinamiento..." />
         </div>
+
+        {/* Dynamic custom fields */}
+        {activeFields.length > 0 && (
+          <div className="sm:col-span-2">
+            <div className="border-t border-primary/10 pt-4 mt-1">
+              <p className="text-xs font-bold text-primary/70 uppercase tracking-wide mb-4">Preguntas adicionales</p>
+              <div className="space-y-4">
+                {activeFields.map((field) => (
+                  <div key={field.id}>
+                    <label className="text-sm font-medium block mb-1.5">
+                      {field.label}
+                      {field.required && <span className="text-red-500 ml-1">*</span>}
+                    </label>
+                    {field.fieldType === "short_answer" ? (
+                      <input
+                        data-testid={`custom-field-${field.id}`}
+                        value={customResponses[field.id] ?? ""}
+                        onChange={e => setCustom(field.id, e.target.value)}
+                        className={inputCls}
+                        placeholder="Tu respuesta..."
+                      />
+                    ) : (
+                      <div className="space-y-2">
+                        {(field.options ?? []).map((opt, oi) => (
+                          <label key={oi} className="flex items-center gap-3 cursor-pointer group">
+                            <input
+                              type="radio"
+                              name={`custom-field-${field.id}`}
+                              data-testid={`custom-field-${field.id}-opt-${oi}`}
+                              checked={customResponses[field.id] === opt}
+                              onChange={() => setCustom(field.id, opt)}
+                              className="w-4 h-4 text-primary accent-primary"
+                            />
+                            <span className="text-sm group-hover:text-primary transition-colors">{opt}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex gap-3 mt-5">
         <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>

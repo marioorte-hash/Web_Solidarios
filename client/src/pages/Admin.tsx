@@ -2,12 +2,12 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, LayoutDashboard, Newspaper, Calendar, ShoppingBag, Tag, X, Check, Package, GraduationCap, Clock, User, Heart, MessageSquare, Upload, Paperclip, Reply, Users, KeyRound, Shield, UserPlus } from "lucide-react";
+import { Plus, Pencil, Trash2, LayoutDashboard, Newspaper, Calendar, ShoppingBag, Tag, X, Check, Package, GraduationCap, Clock, User, Heart, MessageSquare, Upload, Paperclip, Reply, Users, KeyRound, Shield, UserPlus, Settings, GripVertical, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, ListChecks, Type } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useRef } from "react";
-import type { NewsItem, Activity, Product, PromoCode } from "@shared/schema";
+import type { NewsItem, Activity, Product, PromoCode, SponsorshipFormField } from "@shared/schema";
 
 interface AdminSponsorship {
   id: number;
@@ -689,6 +689,235 @@ function OrdersAdmin() {
   );
 }
 
+// ── Sponsorship Form Builder ───────────────────────────────────────────────────
+
+function FormFieldEditor({ field, onSaved, onClose }: {
+  field?: SponsorshipFormField; onSaved: () => void; onClose: () => void;
+}) {
+  const { toast } = useToast();
+  const [label, setLabel] = useState(field?.label ?? "");
+  const [fieldType, setFieldType] = useState<"short_answer" | "multiple_choice">(
+    (field?.fieldType as any) ?? "short_answer"
+  );
+  const [optionsText, setOptionsText] = useState(field?.options?.join("\n") ?? "");
+  const [required, setRequired] = useState(field?.required ?? false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!label.trim()) { toast({ title: "El enunciado es obligatorio", variant: "destructive" }); return; }
+    if (fieldType === "multiple_choice" && !optionsText.trim()) {
+      toast({ title: "Añade al menos una opción", variant: "destructive" }); return;
+    }
+    setSaving(true);
+    try {
+      const options = fieldType === "multiple_choice"
+        ? optionsText.split("\n").map(o => o.trim()).filter(Boolean)
+        : null;
+      const body = { label: label.trim(), fieldType, options, required, sortOrder: field?.sortOrder ?? 0 };
+      if (field) {
+        await apiRequest("PUT", `/api/admin/sponsorship-form-fields/${field.id}`, body);
+        toast({ title: "Pregunta actualizada" });
+      } else {
+        await apiRequest("POST", "/api/admin/sponsorship-form-fields", body);
+        toast({ title: "Pregunta añadida" });
+      }
+      onSaved();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputCls = "w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20";
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      className="bg-accent/20 border border-primary/15 rounded-2xl p-5 mt-1">
+      <div className="flex justify-between items-center mb-4">
+        <h4 className="font-display font-bold">{field ? "Editar pregunta" : "Nueva pregunta"}</h4>
+        <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+      </div>
+      <div className="space-y-4">
+        <div>
+          <label className="text-sm font-medium block mb-1.5">Enunciado de la pregunta <span className="text-red-500">*</span></label>
+          <input data-testid="input-field-label" value={label} onChange={e => setLabel(e.target.value)} className={inputCls} placeholder="¿Cuál es tu motivación para apadrinar?" />
+        </div>
+        <div>
+          <label className="text-sm font-medium block mb-2">Tipo de respuesta</label>
+          <div className="flex gap-3">
+            <button
+              data-testid="btn-type-short"
+              onClick={() => setFieldType("short_answer")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold transition-all ${fieldType === "short_answer" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-gray-300"}`}>
+              <Type className="w-4 h-4" /> Respuesta corta
+            </button>
+            <button
+              data-testid="btn-type-multiple"
+              onClick={() => setFieldType("multiple_choice")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold transition-all ${fieldType === "multiple_choice" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-gray-300"}`}>
+              <ListChecks className="w-4 h-4" /> Opción múltiple
+            </button>
+          </div>
+        </div>
+        {fieldType === "multiple_choice" && (
+          <div>
+            <label className="text-sm font-medium block mb-1.5">Opciones <span className="text-xs text-muted-foreground">(una por línea)</span></label>
+            <textarea data-testid="input-field-options" value={optionsText} onChange={e => setOptionsText(e.target.value)} rows={4}
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+              placeholder={"Opción A\nOpción B\nOpción C"} />
+          </div>
+        )}
+        <div className="flex items-center justify-between py-2 px-3 bg-white border border-border/30 rounded-xl">
+          <div>
+            <p className="text-sm font-semibold">Campo obligatorio</p>
+            <p className="text-xs text-muted-foreground">El socio debe responder esta pregunta</p>
+          </div>
+          <button
+            data-testid="toggle-required"
+            onClick={() => setRequired(r => !r)}
+            className={`transition-colors ${required ? "text-primary" : "text-muted-foreground"}`}>
+            {required ? <ToggleRight className="w-8 h-8" /> : <ToggleLeft className="w-8 h-8" />}
+          </button>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
+          <button data-testid="btn-save-field" onClick={handleSave} disabled={saving} className="flex-1 btn-primary py-2.5 text-sm disabled:opacity-60">
+            {saving ? "Guardando..." : (field ? "Actualizar" : "Añadir pregunta")}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function FormBuilder() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { data: fields, isLoading } = useQuery<SponsorshipFormField[]>({ queryKey: ["/api/sponsorship-form-fields"] });
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<SponsorshipFormField | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const del = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/sponsorship-form-fields/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/sponsorship-form-fields"] }); setDeletingId(null); toast({ title: "Pregunta eliminada" }); },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const toggle = useMutation({
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+      apiRequest("PUT", `/api/admin/sponsorship-form-fields/${id}`, { isActive }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/sponsorship-form-fields"] }),
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const move = useMutation({
+    mutationFn: ({ id, sortOrder }: { id: number; sortOrder: number }) =>
+      apiRequest("PUT", `/api/admin/sponsorship-form-fields/${id}`, { sortOrder }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/sponsorship-form-fields"] }),
+  });
+
+  const handleSaved = () => { qc.invalidateQueries({ queryKey: ["/api/sponsorship-form-fields"] }); setShowForm(false); setEditing(null); };
+
+  if (isLoading) return <div className="py-8 text-center text-muted-foreground text-sm">Cargando...</div>;
+
+  const sorted = [...(fields ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+
+  return (
+    <div className="border border-border/20 rounded-2xl overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 bg-gray-50 border-b border-border/20">
+        <div className="flex items-center gap-2">
+          <Settings className="w-5 h-5 text-primary" />
+          <div>
+            <p className="font-display font-bold">Configurar formulario de inscripción</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{sorted.length} pregunta{sorted.length !== 1 ? "s" : ""} personalizada{sorted.length !== 1 ? "s" : ""}</p>
+          </div>
+        </div>
+        {!showForm && !editing && (
+          <button data-testid="btn-add-field" onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 btn-primary text-sm py-2 px-4">
+            <Plus className="w-4 h-4" /> Añadir pregunta
+          </button>
+        )}
+      </div>
+
+      <div className="p-5 space-y-3">
+        {showForm && !editing && (
+          <FormFieldEditor onClose={() => setShowForm(false)} onSaved={handleSaved} />
+        )}
+
+        {sorted.length === 0 && !showForm ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            <ListChecks className="w-10 h-10 mx-auto mb-2 text-muted-foreground/30" />
+            <p>No hay preguntas personalizadas aún.</p>
+            <p className="text-xs mt-1">Añade preguntas que aparecerán en el formulario de apadrinamiento.</p>
+          </div>
+        ) : (
+          sorted.map((f, i) => (
+            <div key={f.id} data-testid={`form-field-${f.id}`}>
+              {editing?.id === f.id ? (
+                <FormFieldEditor field={f} onClose={() => setEditing(null)} onSaved={handleSaved} />
+              ) : (
+                <div className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${f.isActive ? "bg-white border-border/20" : "bg-gray-50 border-border/10 opacity-60"}`}>
+                  <div className="flex flex-col gap-0.5 mt-1">
+                    <button onClick={() => i > 0 && move.mutate({ id: f.id, sortOrder: sorted[i - 1].sortOrder - 1 })}
+                      disabled={i === 0} className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors">
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => i < sorted.length - 1 && move.mutate({ id: f.id, sortOrder: sorted[i + 1].sortOrder + 1 })}
+                      disabled={i === sorted.length - 1} className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors">
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm">{f.label}</span>
+                      {f.required && <span className="text-xs font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">Obligatorio</span>}
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${f.fieldType === "multiple_choice" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                        {f.fieldType === "multiple_choice" ? "Opción múltiple" : "Respuesta corta"}
+                      </span>
+                    </div>
+                    {f.fieldType === "multiple_choice" && f.options && f.options.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {f.options.map((opt, oi) => (
+                          <span key={oi} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{opt}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      data-testid={`toggle-field-${f.id}`}
+                      onClick={() => toggle.mutate({ id: f.id, isActive: !f.isActive })}
+                      title={f.isActive ? "Desactivar" : "Activar"}
+                      className={`p-1.5 rounded-lg transition-colors ${f.isActive ? "text-green-600 hover:bg-green-50" : "text-gray-400 hover:bg-gray-100"}`}>
+                      {f.isActive ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
+                    </button>
+                    <button onClick={() => setEditing(f)} className="p-1.5 rounded-lg hover:bg-gray-100 text-muted-foreground hover:text-foreground transition-colors">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    {deletingId === f.id ? (
+                      <div className="flex gap-1">
+                        <button onClick={() => del.mutate(f.id)} className="px-2 py-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg">Sí</button>
+                        <button onClick={() => setDeletingId(null)} className="px-2 py-1 text-xs font-bold text-muted-foreground hover:bg-gray-100 rounded-lg">No</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setDeletingId(f.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Sponsorships Admin ────────────────────────────────────────────────────────
 
 function SponsorshipsAdmin() {
@@ -696,44 +925,62 @@ function SponsorshipsAdmin() {
 
   if (isLoading) return <div className="py-12 text-center text-muted-foreground">Cargando...</div>;
 
-  if (!items || items.length === 0) {
-    return (
-      <div className="py-16 text-center">
-        <Heart className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-        <p className="text-muted-foreground">Aún no hay apadrinamientos registrados</p>
-      </div>
-    );
-  }
-
   return (
-    <div>
-      <h2 className="text-xl font-display font-bold mb-6">Apadrinamientos</h2>
-      <p className="text-sm text-muted-foreground mb-4">{items.length} apadrinamiento{items.length !== 1 ? "s" : ""}</p>
-      <div className="space-y-3">
-        {items.map((item) => (
-          <div key={item.id} data-testid={`admin-sponsorship-${item.id}`}
-            className="bg-white border border-border/20 rounded-xl p-4 flex items-start gap-4">
-            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-              <Heart className="w-5 h-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap gap-x-4 gap-y-1 items-baseline">
-                <span className="font-semibold">{item.childName}</span>
-                {item.childAge && <span className="text-sm text-muted-foreground">{item.childAge} años</span>}
-                <span className="text-sm text-muted-foreground">{item.country}</span>
-                {item.monthlyAmount && <span className="text-sm font-semibold text-primary">{parseFloat(item.monthlyAmount).toFixed(2)}€/mes</span>}
-              </div>
-              {item.school && <p className="text-xs text-muted-foreground mt-0.5">Escuela: {item.school}</p>}
-              <p className="text-xs text-muted-foreground mt-1">
-                Socio: <span className="font-medium">{item.username ?? "—"}</span> · {item.userEmail ?? "—"}
-              </p>
-              {item.notes && <p className="text-xs text-muted-foreground italic mt-0.5">"{item.notes}"</p>}
-            </div>
-            {item.startDate && (
-              <span className="text-xs text-muted-foreground flex-shrink-0">Desde {item.startDate}</span>
-            )}
+    <div className="space-y-8">
+      <FormBuilder />
+
+      <div>
+        <h2 className="text-xl font-display font-bold mb-2">Apadrinamientos registrados</h2>
+        {!items || items.length === 0 ? (
+          <div className="py-12 text-center border-2 border-dashed border-primary/15 rounded-2xl">
+            <Heart className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+            <p className="text-muted-foreground">Aún no hay apadrinamientos registrados</p>
           </div>
-        ))}
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground mb-4">{items.length} apadrinamiento{items.length !== 1 ? "s" : ""}</p>
+            <div className="space-y-3">
+              {items.map((item) => {
+                const customResponses: Record<string, string> = item.customResponses
+                  ? (() => { try { return JSON.parse(item.customResponses!); } catch { return {}; } })()
+                  : {};
+                return (
+                  <div key={item.id} data-testid={`admin-sponsorship-${item.id}`}
+                    className="bg-white border border-border/20 rounded-xl p-4 flex items-start gap-4">
+                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Heart className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 items-baseline">
+                        <span className="font-semibold">{item.childName}</span>
+                        {item.childAge && <span className="text-sm text-muted-foreground">{item.childAge} años</span>}
+                        <span className="text-sm text-muted-foreground">{item.country}</span>
+                        {item.monthlyAmount && <span className="text-sm font-semibold text-primary">{parseFloat(item.monthlyAmount).toFixed(2)}€/mes</span>}
+                      </div>
+                      {item.school && <p className="text-xs text-muted-foreground mt-0.5">Escuela: {item.school}</p>}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Socio: <span className="font-medium">{item.username ?? "—"}</span> · {item.userEmail ?? "—"}
+                      </p>
+                      {item.notes && <p className="text-xs text-muted-foreground italic mt-0.5">"{item.notes}"</p>}
+                      {Object.keys(customResponses).length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {Object.entries(customResponses).map(([fieldId, resp]) => (
+                            <p key={fieldId} className="text-xs text-muted-foreground">
+                              <span className="font-medium">Campo {fieldId}:</span> {resp}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {item.startDate && (
+                      <span className="text-xs text-muted-foreground flex-shrink-0">Desde {item.startDate}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

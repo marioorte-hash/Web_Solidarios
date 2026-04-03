@@ -264,6 +264,41 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getAdminActivityRegistrations());
   });
 
+  // ─── SPONSORSHIP FORM FIELDS ─────────────────────────────────────────
+  app.get("/api/sponsorship-form-fields", async (_req, res) => {
+    res.json(await storage.getSponsorshipFormFields());
+  });
+
+  app.post("/api/admin/sponsorship-form-fields", requireAdmin, async (req, res) => {
+    try {
+      const { label, fieldType, options, required, sortOrder, isActive } = req.body;
+      if (!label) return res.status(400).json({ message: "El campo 'label' es obligatorio" });
+      const field = await storage.createSponsorshipFormField({
+        label, fieldType: fieldType ?? "short_answer",
+        options: options ?? null, required: required ?? false,
+        sortOrder: sortOrder ?? 0, isActive: isActive ?? true,
+      });
+      res.json(field);
+    } catch (err) {
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
+  app.put("/api/admin/sponsorship-form-fields/:id", requireAdmin, async (req, res) => {
+    try {
+      const updated = await storage.updateSponsorshipFormField(Number(req.params.id), req.body);
+      if (!updated) return res.status(404).json({ message: "No encontrado" });
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
+  app.delete("/api/admin/sponsorship-form-fields/:id", requireAdmin, async (req, res) => {
+    await storage.deleteSponsorshipFormField(Number(req.params.id));
+    res.json({ success: true });
+  });
+
   // ─── SPONSORSHIPS ────────────────────────────────────────────────────
   app.get("/api/my-sponsorships", requireAuth, async (req, res) => {
     res.json(await storage.getSponsorshipsByUser(req.session.userId!));

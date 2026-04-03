@@ -101,6 +101,22 @@ export const insertActivityRegistrationSchema = createInsertSchema(activityRegis
 export type ActivityRegistration = typeof activityRegistrations.$inferSelect;
 export type InsertActivityRegistration = z.infer<typeof insertActivityRegistrationSchema>;
 
+// Sponsorship Form Fields (custom dynamic fields for apadrinamiento form)
+export const sponsorshipFormFields = pgTable("sponsorship_form_fields", {
+  id: serial("id").primaryKey(),
+  label: text("label").notNull(),
+  fieldType: text("field_type").notNull().default("short_answer"), // "short_answer" | "multiple_choice"
+  options: text("options").array(), // only for multiple_choice
+  required: boolean("required").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSponsorshipFormFieldSchema = createInsertSchema(sponsorshipFormFields).omit({ id: true, createdAt: true });
+export type SponsorshipFormField = typeof sponsorshipFormFields.$inferSelect;
+export type InsertSponsorshipFormField = z.infer<typeof insertSponsorshipFormFieldSchema>;
+
 // Sponsorships (Apadrinamiento)
 export const sponsorships = pgTable("sponsorships", {
   id: serial("id").primaryKey(),
@@ -112,6 +128,7 @@ export const sponsorships = pgTable("sponsorships", {
   monthlyAmount: numeric("monthly_amount", { precision: 10, scale: 2 }),
   startDate: text("start_date"),
   notes: text("notes"),
+  customResponses: text("custom_responses"), // JSON string: { fieldId: response }
   createdAt: timestamp("created_at").defaultNow(),
 });
 
