@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, LayoutDashboard, Newspaper, Calendar, ShoppingBag, Tag, X, Check, Package, GraduationCap, Clock, User, Heart, MessageSquare, Upload, Paperclip, Reply } from "lucide-react";
+import { Plus, Pencil, Trash2, LayoutDashboard, Newspaper, Calendar, ShoppingBag, Tag, X, Check, Package, GraduationCap, Clock, User, Heart, MessageSquare, Upload, Paperclip, Reply, Users, KeyRound, Shield, UserPlus } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -919,9 +919,216 @@ function MessagesAdmin() {
   );
 }
 
+// ── Users Admin Section ───────────────────────────────────────────────────────
+
+interface AdminUser {
+  id: number;
+  username: string;
+  email: string;
+  role: "admin" | "user";
+  createdAt: string | null;
+}
+
+function UsersAdmin() {
+  const { data: userList, isLoading } = useQuery<AdminUser[]>({ queryKey: ["/api/admin/users"] });
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [changingPasswordId, setChangingPasswordId] = useState<number | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newUser, setNewUser] = useState({ username: "", email: "", password: "", role: "user" as "admin" | "user" });
+
+  const changePasswordMut = useMutation({
+    mutationFn: (data: { id: number; password: string }) =>
+      apiRequest("PATCH", `/api/admin/users/${data.id}/password`, { password: data.password }),
+    onSuccess: () => {
+      toast({ title: "Contraseña actualizada" });
+      setChangingPasswordId(null);
+      setNewPassword("");
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/users/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setDeletingId(null);
+      toast({ title: "Usuario eliminado" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const createMut = useMutation({
+    mutationFn: (data: typeof newUser) => apiRequest("POST", "/api/admin/users", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setShowAddForm(false);
+      setNewUser({ username: "", email: "", password: "", role: "user" });
+      toast({ title: "Socio/usuario creado correctamente" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  if (isLoading) return <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-display font-bold">Socios / Usuarios</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">{userList?.length ?? 0} usuarios registrados</p>
+        </div>
+        <button
+          data-testid="button-add-user"
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
+        >
+          <UserPlus className="w-4 h-4" />
+          Nuevo socio
+        </button>
+      </div>
+
+      {showAddForm && (
+        <div className="border border-border/30 rounded-2xl p-5 bg-accent/20 space-y-4">
+          <h3 className="font-semibold text-sm flex items-center gap-2"><UserPlus className="w-4 h-4 text-primary" /> Añadir nuevo socio/usuario</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Nombre de usuario</label>
+              <input
+                data-testid="input-new-username"
+                type="text"
+                placeholder="nombreusuario"
+                value={newUser.username}
+                onChange={(e) => setNewUser(p => ({ ...p, username: e.target.value }))}
+                className="w-full h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Email</label>
+              <input
+                data-testid="input-new-email"
+                type="text"
+                placeholder="correo@ejemplo.com"
+                value={newUser.email}
+                onChange={(e) => setNewUser(p => ({ ...p, email: e.target.value }))}
+                className="w-full h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Contraseña inicial</label>
+              <input
+                data-testid="input-new-password"
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                value={newUser.password}
+                onChange={(e) => setNewUser(p => ({ ...p, password: e.target.value }))}
+                className="w-full h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Rol</label>
+              <select
+                data-testid="select-new-role"
+                value={newUser.role}
+                onChange={(e) => setNewUser(p => ({ ...p, role: e.target.value as "admin" | "user" }))}
+                className="w-full h-9 rounded-xl border border-input bg-white px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="user">Socio / Usuario</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              data-testid="button-save-new-user"
+              onClick={() => createMut.mutate(newUser)}
+              disabled={createMut.isPending}
+              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {createMut.isPending ? "Guardando..." : "Crear usuario"}
+            </button>
+            <button onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-gray-100 text-foreground/60 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {userList?.map((u) => (
+          <div key={u.id} data-testid={`user-card-${u.id}`} className="border border-border/20 rounded-2xl p-4 bg-white">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${u.role === "admin" ? "bg-primary/10" : "bg-muted"}`}>
+                  {u.role === "admin" ? <Shield className="w-4 h-4 text-primary" /> : <User className="w-4 h-4 text-muted-foreground" />}
+                </div>
+                <div className="min-w-0">
+                  <p data-testid={`text-username-${u.id}`} className="font-semibold text-sm truncate">{u.username}</p>
+                  <p data-testid={`text-email-${u.id}`} className="text-xs text-muted-foreground truncate">{u.email}</p>
+                  <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-semibold ${u.role === "admin" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    {u.role === "admin" ? "Administrador" : "Socio"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {changingPasswordId === u.id ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      data-testid={`input-change-password-${u.id}`}
+                      type="password"
+                      placeholder="Nueva contraseña"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-36 h-8 rounded-lg border border-input bg-white px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <button
+                      data-testid={`button-confirm-password-${u.id}`}
+                      onClick={() => changePasswordMut.mutate({ id: u.id, password: newPassword })}
+                      disabled={changePasswordMut.isPending || newPassword.length < 6}
+                      className="text-green-600 hover:text-green-800 p-1 disabled:opacity-40"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => { setChangingPasswordId(null); setNewPassword(""); }} className="text-gray-400 hover:text-gray-600 p-1">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    data-testid={`button-change-password-${u.id}`}
+                    onClick={() => setChangingPasswordId(u.id)}
+                    className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/70 font-semibold transition-colors"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" /> Contraseña
+                  </button>
+                )}
+
+                {deletingId === u.id ? (
+                  <ConfirmDelete onConfirm={() => deleteMut.mutate(u.id)} onCancel={() => setDeletingId(null)} />
+                ) : (
+                  <button
+                    data-testid={`button-delete-user-${u.id}`}
+                    onClick={() => setDeletingId(u.id)}
+                    className="text-red-400 hover:text-red-600 p-1.5"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Admin Page ───────────────────────────────────────────────────────────
 
-type Tab = "news" | "activities" | "products" | "promos" | "orders" | "sponsorships" | "activity-regs" | "messages";
+type Tab = "news" | "activities" | "products" | "promos" | "orders" | "sponsorships" | "activity-regs" | "messages" | "users";
 
 const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "news", label: "Noticias", icon: <Newspaper className="w-5 h-5" /> },
@@ -932,6 +1139,7 @@ const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "sponsorships", label: "Apadrinamientos", icon: <Heart className="w-5 h-5" /> },
   { id: "activity-regs", label: "Inscripciones", icon: <User className="w-5 h-5" /> },
   { id: "messages", label: "Mensajes", icon: <MessageSquare className="w-5 h-5" /> },
+  { id: "users", label: "Socios", icon: <Users className="w-5 h-5" /> },
 ];
 
 export default function Admin() {
@@ -990,6 +1198,7 @@ export default function Admin() {
           {activeTab === "sponsorships" && <SponsorshipsAdmin />}
           {activeTab === "activity-regs" && <ActivityRegsAdmin />}
           {activeTab === "messages" && <MessagesAdmin />}
+          {activeTab === "users" && <UsersAdmin />}
         </div>
       </div>
     </div>

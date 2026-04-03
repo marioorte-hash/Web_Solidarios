@@ -4,10 +4,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
+import { Eye, EyeOff, LogIn, UserPlus, Shield } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useLogin, useRegister } from "@/hooks/use-auth";
 
@@ -20,11 +21,15 @@ const registerSchema = z.object({
   username: z.string().min(3, "Mínimo 3 caracteres"),
   email: z.string().email("Email inválido"),
   password: z.string().min(6, "Mínimo 6 caracteres"),
+  acceptTerms: z.boolean().refine((v) => v === true, {
+    message: "Debes aceptar la política de privacidad para registrarte",
+  }),
 });
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const login = useLogin();
@@ -37,7 +42,7 @@ export default function Auth() {
 
   const registerForm = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { username: "", email: "", password: "" },
+    defaultValues: { username: "", email: "", password: "", acceptTerms: false },
   });
 
   const onLogin = loginForm.handleSubmit(async (data) => {
@@ -52,7 +57,8 @@ export default function Auth() {
 
   const onRegister = registerForm.handleSubmit(async (data) => {
     try {
-      await register.mutateAsync(data);
+      const { acceptTerms, ...registerData } = data;
+      await register.mutateAsync(registerData);
       toast({ title: "¡Cuenta creada!", description: "Te has registrado correctamente." });
       navigate("/");
     } catch (err: any) {
@@ -105,7 +111,14 @@ export default function Auth() {
                         <FormItem>
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input data-testid="input-email" type="email" placeholder="tu@email.com" className="rounded-xl" {...field} />
+                            <input
+                              data-testid="input-email"
+                              type="text"
+                              autoComplete="email"
+                              placeholder="tu@email.com"
+                              className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -119,7 +132,14 @@ export default function Auth() {
                           <FormLabel>Contraseña</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Input data-testid="input-password" type={showPassword ? "text" : "password"} placeholder="••••••" className="rounded-xl pr-10" {...field} />
+                              <input
+                                data-testid="input-password"
+                                type={showPassword ? "text" : "password"}
+                                autoComplete="current-password"
+                                placeholder="••••••"
+                                className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 pr-10 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                {...field}
+                              />
                               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                               </button>
@@ -137,7 +157,7 @@ export default function Auth() {
               </>
             ) : (
               <>
-                <div className="text-center mb-8">
+                <div className="text-center mb-6">
                   <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                     <UserPlus className="w-7 h-7 text-primary" />
                   </div>
@@ -145,7 +165,7 @@ export default function Auth() {
                   <p className="text-muted-foreground text-sm mt-1">Únete a nuestra comunidad</p>
                 </div>
                 <Form {...registerForm}>
-                  <form onSubmit={onRegister} className="space-y-5">
+                  <form onSubmit={onRegister} className="space-y-4">
                     <FormField
                       control={registerForm.control}
                       name="username"
@@ -153,7 +173,14 @@ export default function Auth() {
                         <FormItem>
                           <FormLabel>Nombre de usuario</FormLabel>
                           <FormControl>
-                            <Input data-testid="input-username" placeholder="tunombre" className="rounded-xl" {...field} />
+                            <input
+                              data-testid="input-username"
+                              type="text"
+                              autoComplete="username"
+                              placeholder="tunombre"
+                              className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -166,7 +193,14 @@ export default function Auth() {
                         <FormItem>
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input data-testid="input-email-register" type="email" placeholder="tu@email.com" className="rounded-xl" {...field} />
+                            <input
+                              data-testid="input-email-register"
+                              type="text"
+                              autoComplete="email"
+                              placeholder="tu@email.com"
+                              className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -180,9 +214,16 @@ export default function Auth() {
                           <FormLabel>Contraseña</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Input data-testid="input-password-register" type={showPassword ? "text" : "password"} placeholder="Mínimo 6 caracteres" className="rounded-xl pr-10" {...field} />
-                              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              <input
+                                data-testid="input-password-register"
+                                type={showRegisterPassword ? "text" : "password"}
+                                autoComplete="new-password"
+                                placeholder="Mínimo 6 caracteres"
+                                className="flex h-10 w-full rounded-xl border border-input bg-white px-3 py-2 pr-10 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                {...field}
+                              />
+                              <button type="button" onClick={() => setShowRegisterPassword(!showRegisterPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                {showRegisterPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                               </button>
                             </div>
                           </FormControl>
@@ -190,6 +231,39 @@ export default function Auth() {
                         </FormItem>
                       )}
                     />
+
+                    {/* Privacy & Terms */}
+                    <div className="rounded-xl bg-accent/40 border border-primary/10 p-4 space-y-3">
+                      <div className="flex items-start gap-2">
+                        <Shield className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Al registrarte, tus datos personales (nombre, email) serán almacenados por <strong>Alumnos Solidarios</strong> con el único fin de gestionar tu cuenta y comunicaciones de la asociación. Puedes solicitar la eliminación de tus datos en cualquier momento contactando con nosotros.
+                        </p>
+                      </div>
+                      <FormField
+                        control={registerForm.control}
+                        name="acceptTerms"
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className="flex items-start gap-3">
+                              <FormControl>
+                                <Checkbox
+                                  data-testid="checkbox-accept-terms"
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  className="mt-0.5"
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm font-normal leading-relaxed cursor-pointer">
+                                Acepto que mi correo electrónico y datos sean almacenados por Alumnos Solidarios conforme a su política de privacidad y protección de datos.
+                              </FormLabel>
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
                     <Button data-testid="button-register" type="submit" className="w-full rounded-full" disabled={register.isPending}>
                       {register.isPending ? "Creando cuenta..." : "Registrarse"}
                     </Button>

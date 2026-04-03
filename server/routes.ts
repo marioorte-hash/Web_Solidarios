@@ -595,6 +595,51 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ─── ADMIN USER MANAGEMENT ───────────────────────────────────────────
+  app.get("/api/admin/users", requireAdmin, async (_req, res) => {
+    res.json(await storage.getAllUsers());
+  });
+
+  app.post("/api/admin/users", requireAdmin, async (req, res) => {
+    try {
+      const body = z.object({
+        username: z.string().min(3),
+        email: z.string().email(),
+        password: z.string().min(6),
+        role: z.enum(["admin", "user"]).default("user"),
+      }).parse(req.body);
+      const existing = await storage.getUserByEmail(body.email);
+      if (existing) return res.status(400).json({ message: "El email ya está en uso" });
+      const user = await storage.createAdminUser(body, body.role);
+      res.json(user);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
+  app.patch("/api/admin/users/:id/password", requireAdmin, async (req, res) => {
+    try {
+      const { password } = z.object({ password: z.string().min(6) }).parse(req.body);
+      await storage.changeUserPassword(Number(req.params.id), password);
+      res.json({ success: true });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (req.session.userId === id) return res.status(400).json({ message: "No puedes eliminarte a ti mismo" });
+      await storage.deleteUser(id);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
   // ─── SEARCH ──────────────────────────────────────────────────────────
   app.get("/api/search", async (req, res) => {
     try {

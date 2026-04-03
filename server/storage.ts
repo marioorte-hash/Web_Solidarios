@@ -138,6 +138,12 @@ export interface IStorage {
   markMessageRead(id: number): Promise<void>;
   getAllMessages(): Promise<AdminMessage[]>;
 
+  // User Management (Admin)
+  getAllUsers(): Promise<Omit<User, "password">[]>;
+  changeUserPassword(id: number, newPassword: string): Promise<void>;
+  deleteUser(id: number): Promise<void>;
+  createAdminUser(user: InsertUser, role: "admin" | "user"): Promise<Omit<User, "password">>;
+
   // Search
   search(query: string): Promise<{ products: Product[]; news: NewsItem[]; activities: Activity[] }>;
 }
@@ -518,6 +524,28 @@ export class DatabaseStorage implements IStorage {
       .from(internalMessages)
       .leftJoin(users, eq(internalMessages.userId, users.id))
       .orderBy(desc(internalMessages.createdAt));
+  }
+
+  // User Management (Admin)
+  async getAllUsers(): Promise<Omit<User, "password">[]> {
+    const rows = await db.select().from(users).orderBy(users.createdAt);
+    return rows.map(({ password, ...u }) => u);
+  }
+
+  async changeUserPassword(id: number, newPassword: string): Promise<void> {
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await db.update(users).set({ password: hashed }).where(eq(users.id, id));
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
+  }
+
+  async createAdminUser(user: InsertUser, role: "admin" | "user"): Promise<Omit<User, "password">> {
+    const hashed = await bcrypt.hash(user.password, 10);
+    const [created] = await db.insert(users).values({ ...user, password: hashed, role }).returning();
+    const { password, ...safe } = created;
+    return safe;
   }
 
   // Search
