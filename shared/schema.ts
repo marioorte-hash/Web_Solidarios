@@ -40,6 +40,7 @@ export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
 export const internalMessages = pgTable("internal_messages", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  recipientId: integer("recipient_id").references(() => users.id, { onDelete: "set null" }),
   subject: text("subject").notNull(),
   body: text("body").notNull(),
   attachmentUrl: text("attachment_url"),

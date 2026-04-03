@@ -118,6 +118,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(user);
   });
 
+  // List admin users (for messaging)
+  app.get("/api/admins", requireAuth, async (_req, res) => {
+    const allUsers = await storage.getAllUsers();
+    const admins = allUsers.filter(u => u.role === "admin").map(({ id, username, email }) => ({ id, username, email }));
+    res.json(admins);
+  });
+
   // ─── FILE UPLOAD ─────────────────────────────────────────────────────
   app.post("/api/upload", requireAdmin, upload.single("file"), (req, res) => {
     if (!req.file) return res.status(400).json({ message: "No se recibió ningún archivo" });
@@ -314,14 +321,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/messages", requireAuth, async (req, res) => {
     try {
-      const { subject, body, attachmentUrl, attachmentName } = z.object({
+      const { subject, body, attachmentUrl, attachmentName, recipientId } = z.object({
         subject: z.string().min(1),
         body: z.string().min(1),
         attachmentUrl: z.string().optional(),
         attachmentName: z.string().optional(),
+        recipientId: z.number().optional(),
       }).parse(req.body);
       const msg = await storage.createMessage({
         userId: req.session.userId!,
+        recipientId: recipientId ?? null,
         subject,
         body,
         attachmentUrl: attachmentUrl ?? null,
