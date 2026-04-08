@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: alumnos-solidarios
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+    domains:
+      - www.alumnossolidarios.org

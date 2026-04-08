@@ -43,7 +43,6 @@ function Router() {
       <Route path="/noticias/:id" component={NewsDetail} />
       <Route path="/blog" component={News} />
       <Route path="/actividades" component={Activities} />
-      <Route path="/agenda" component={Activities} />
       <Route path="/contacto" component={Contact} />
 
       {/* Auth */}

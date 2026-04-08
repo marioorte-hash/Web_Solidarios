@@ -14,7 +14,6 @@ const links = [
   { href: "/razon-de-ser", label: "Razón de ser" },
   { href: "/apadrinamiento", label: "Apadrinamiento" },
   { href: "/noticias", label: "Noticias" },
-  { href: "/agenda", label: "Agenda" },
   { href: "/actividades", label: "Actividades" },
   { href: "/tienda", label: "Tienda" },
   { href: "/contacto", label: "Contacto" },
