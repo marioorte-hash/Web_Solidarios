@@ -83,7 +83,7 @@ export function Navigation() {
           <img
             src={Logo_rosa}
             alt="Logo"
-            className="transition-all duration-300 h-28 w-auto ml-[0px] mr-[0px]"
+            className="transition-all duration-300 h-56 w-auto ml-[0px] mr-[0px]"
           />
         </Link>
 
