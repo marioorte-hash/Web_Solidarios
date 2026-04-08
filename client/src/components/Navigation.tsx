@@ -210,13 +210,13 @@ export function Navigation() {
                       </Link>
                     )}
                     <Link
-                      href="/mis-pedidos"
-                      data-testid="link-my-orders"
+                      href="/mi-panel"
+                      data-testid="link-user-panel"
                       onClick={() => setUserMenuOpen(false)}
                       className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors text-foreground/70 hover:text-foreground"
                     >
                       <User className="w-4 h-4" />
-                      Mis pedidos
+                      Mi panel de socio
                     </Link>
                     <div className="h-px bg-gray-100 my-1" />
                     <button
@@ -302,6 +302,11 @@ export function Navigation() {
                     </Link>
                   )}
                 </div>
+                {user && (
+                  <Link href="/mi-panel" data-testid="link-user-panel-mobile" className="flex items-center justify-center gap-2 py-2.5 bg-primary/5 text-primary rounded-xl text-sm font-bold">
+                    <User className="w-4 h-4" /> Mi panel de socio
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link href="/admin" className="flex items-center justify-center gap-2 py-2.5 bg-primary/5 text-primary rounded-xl text-sm font-bold">
                     <LayoutDashboard className="w-4 h-4" /> Panel Admin
