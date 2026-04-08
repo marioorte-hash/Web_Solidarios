@@ -7,11 +7,21 @@ export default function Activities() {
 
   return (
     <>
-      <PageHeader 
-        title="Agenda de Actividades" 
-        description="Participa en nuestros eventos solidarios, talleres educativos y encuentros comunitarios."
+      <PageHeader
+        title="Un Recorrido por Nuestra Historia"
+        description="A lo largo de los años, impulsados desde la Dirección del Colegio madrileño JOYFE, hemos realizado infinidad de acciones de sensibilización con todo tipo de fines."
       />
-      
+
+      {/* Intro text */}
+      <section className="py-12 bg-accent/30">
+        <div className="container-custom max-w-3xl mx-auto text-center">
+          <p className="text-lg text-muted-foreground leading-relaxed">
+            Somos especialmente sensibles hacia las necesidades de la infancia, sean del tipo que sean. Aquí tenéis un pequeño resumen de las más recientes:
+          </p>
+        </div>
+      </section>
+
+      {/* Activities list */}
       <section className="py-20 bg-white">
         <div className="container-custom">
           {isLoading ? (
