@@ -7,6 +7,8 @@ import { useAuth, useLogout } from "@/hooks/use-auth";
 import { useCart, useCartTotal } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 
+import Logo_rosa from "@assets/Logo rosa.png";
+
 const links = [
   { href: "/", label: "Inicio" },
   { href: "/razon-de-ser", label: "Razón de ser" },
@@ -79,9 +81,9 @@ export function Navigation() {
         {/* Logo */}
         <Link href="/" className="relative z-50 flex-shrink-0">
           <img
-            src={logo}
+            src={Logo_rosa}
             alt="Logo"
-            className={`transition-all duration-300 ${isScrolled ? "h-12 w-auto" : "h-16 w-auto"}`}
+            className="transition-all duration-300 h-16 w-auto ml-[0px] mr-[0px]"
           />
         </Link>
 
@@ -334,7 +336,6 @@ export function Navigation() {
           )}
         </AnimatePresence>
       </div>
-
       {/* Click-away for user menu */}
       {userMenuOpen && (
         <div className="fixed inset-0 z-[55]" onClick={() => setUserMenuOpen(false)} />
