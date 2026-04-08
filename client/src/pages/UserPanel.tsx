@@ -6,12 +6,13 @@ import {
   Heart, Calendar, User, Plus, Trash2, Clock,
   MapPin, CheckCircle2, BookOpen, X, MessageSquare,
   Send, Paperclip, FileText, Reply, ChevronRight,
-  Users, Inbox,
+  Users, Inbox, Package, Gift, Settings, ShieldCheck,
+  ChevronDown, ChevronUp, ExternalLink, ZoomIn,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Activity, Sponsorship, ActivityRegistration, InternalMessage, SponsorshipFormField } from "@shared/schema";
+import type { Activity, ActivityRegistration, InternalMessage, Order, SponsoredChild, Benefit } from "@shared/schema";
 
 type UserActivityReg = ActivityRegistration & { activity: Activity };
 
@@ -25,260 +26,85 @@ function formatDate(d: string | Date | null) {
   });
 }
 
-// ── Sponsorship Tab ────────────────────────────────────────────────────────────
+const ORDER_STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  pending: { label: "Pendiente", color: "bg-yellow-100 text-yellow-700" },
+  paid: { label: "Pagado", color: "bg-blue-100 text-blue-700" },
+  shipped: { label: "Enviado", color: "bg-purple-100 text-purple-700" },
+  delivered: { label: "Entregado", color: "bg-green-100 text-green-700" },
+  cancelled: { label: "Cancelado", color: "bg-red-100 text-red-700" },
+};
 
-function SponsorshipForm({ onClose, onSaved, existing }: {
-  onClose: () => void; onSaved: () => void; existing?: Sponsorship;
-}) {
-  const { toast } = useToast();
-  const { data: customFields } = useQuery<SponsorshipFormField[]>({ queryKey: ["/api/sponsorship-form-fields"] });
-  const activeFields = (customFields ?? []).filter(f => f.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+// ── Sponsored Children Section ─────────────────────────────────────────────────
 
-  const existingResponses: Record<string, string> = existing?.customResponses
-    ? (() => { try { return JSON.parse(existing.customResponses!); } catch { return {}; } })()
-    : {};
+function ChildrenSection() {
+  const { data: children, isLoading } = useQuery<SponsoredChild[]>({ queryKey: ["/api/my-sponsored-children"] });
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  const [form, setForm] = useState({
-    childName: existing?.childName ?? "",
-    childAge: existing?.childAge?.toString() ?? "",
-    country: existing?.country ?? "",
-    school: existing?.school ?? "",
-    monthlyAmount: existing?.monthlyAmount?.toString() ?? "",
-    startDate: existing?.startDate ?? "",
-    notes: existing?.notes ?? "",
-  });
-  const [customResponses, setCustomResponses] = useState<Record<string, string>>(existingResponses);
-  const [saving, setSaving] = useState(false);
+  if (isLoading) return <div className="py-8 text-center text-muted-foreground text-sm">Cargando...</div>;
 
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm(f => ({ ...f, [k]: e.target.value }));
-  const setCustom = (fieldId: number, value: string) =>
-    setCustomResponses(r => ({ ...r, [fieldId]: value }));
-
-  const handleSave = async () => {
-    if (!form.childName.trim() || !form.country.trim()) {
-      toast({ title: "Campos requeridos", description: "Nombre del niño y país son obligatorios", variant: "destructive" });
-      return;
-    }
-    for (const field of activeFields) {
-      if (field.required && !customResponses[field.id]?.trim()) {
-        toast({ title: "Campo obligatorio", description: `"${field.label}" es obligatorio`, variant: "destructive" });
-        return;
-      }
-    }
-    setSaving(true);
-    try {
-      const body = {
-        childName: form.childName,
-        country: form.country,
-        childAge: form.childAge ? Number(form.childAge) : undefined,
-        school: form.school || undefined,
-        monthlyAmount: form.monthlyAmount || undefined,
-        startDate: form.startDate || undefined,
-        notes: form.notes || undefined,
-        customResponses: Object.keys(customResponses).length > 0 ? JSON.stringify(customResponses) : undefined,
-      };
-      if (existing) {
-        await apiRequest("PUT", `/api/sponsorships/${existing.id}`, body);
-        toast({ title: "Apadrinamiento actualizado" });
-      } else {
-        await apiRequest("POST", "/api/sponsorships", body);
-        toast({ title: "¡Apadrinamiento registrado!" });
-      }
-      onSaved();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const inputCls = "w-full border border-border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20";
+  if (!children || children.length === 0) {
+    return (
+      <div className="text-center py-12 border-2 border-dashed border-primary/20 rounded-2xl">
+        <Heart className="w-10 h-10 mx-auto mb-3 text-primary/30" />
+        <p className="font-display font-bold mb-1">Sin niños apadrinados aún</p>
+        <p className="text-sm text-muted-foreground">El equipo de Alumnos Solidarios te asignará un niño.</p>
+      </div>
+    );
+  }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-      className="bg-accent/20 border border-primary/10 rounded-2xl p-6 mt-4">
-      <div className="flex justify-between items-center mb-5">
-        <h3 className="font-display font-bold text-lg">{existing ? "Editar apadrinamiento" : "Nuevo apadrinamiento"}</h3>
-        <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground transition-colors"><X className="w-5 h-5" /></button>
-      </div>
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium block mb-1.5">Nombre del niño <span className="text-red-500">*</span></label>
-          <input data-testid="input-child-name" value={form.childName} onChange={set("childName")} className={inputCls} placeholder="María García" />
-        </div>
-        <div>
-          <label className="text-sm font-medium block mb-1.5">País <span className="text-red-500">*</span></label>
-          <input data-testid="input-country" value={form.country} onChange={set("country")} className={inputCls} placeholder="Honduras" />
-        </div>
-        <div>
-          <label className="text-sm font-medium block mb-1.5">Edad</label>
-          <input data-testid="input-child-age" type="number" min="1" max="18" value={form.childAge} onChange={set("childAge")} className={inputCls} placeholder="8" />
-        </div>
-        <div>
-          <label className="text-sm font-medium block mb-1.5">Escuela</label>
-          <input data-testid="input-school" value={form.school} onChange={set("school")} className={inputCls} placeholder="Escuela San Juan" />
-        </div>
-        <div>
-          <label className="text-sm font-medium block mb-1.5">Cuota mensual (€)</label>
-          <input data-testid="input-monthly-amount" type="number" step="0.01" min="0" value={form.monthlyAmount} onChange={set("monthlyAmount")} className={inputCls} placeholder="30.00" />
-        </div>
-        <div>
-          <label className="text-sm font-medium block mb-1.5">Fecha de inicio</label>
-          <input data-testid="input-start-date" type="date" value={form.startDate} onChange={set("startDate")} className={inputCls} />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="text-sm font-medium block mb-1.5">Notas adicionales</label>
-          <textarea data-testid="input-notes" value={form.notes} onChange={set("notes")} rows={3}
-            className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-            placeholder="Observaciones sobre el apadrinamiento..." />
-        </div>
-
-        {/* Dynamic custom fields */}
-        {activeFields.length > 0 && (
-          <div className="sm:col-span-2">
-            <div className="border-t border-primary/10 pt-4 mt-1">
-              <p className="text-xs font-bold text-primary/70 uppercase tracking-wide mb-4">Preguntas adicionales</p>
-              <div className="space-y-4">
-                {activeFields.map((field) => (
-                  <div key={field.id}>
-                    <label className="text-sm font-medium block mb-1.5">
-                      {field.label}
-                      {field.required && <span className="text-red-500 ml-1">*</span>}
-                    </label>
-                    {field.fieldType === "short_answer" ? (
-                      <input
-                        data-testid={`custom-field-${field.id}`}
-                        value={customResponses[field.id] ?? ""}
-                        onChange={e => setCustom(field.id, e.target.value)}
-                        className={inputCls}
-                        placeholder="Tu respuesta..."
-                      />
-                    ) : (
-                      <div className="space-y-2">
-                        {(field.options ?? []).map((opt, oi) => (
-                          <label key={oi} className="flex items-center gap-3 cursor-pointer group">
-                            <input
-                              type="radio"
-                              name={`custom-field-${field.id}`}
-                              data-testid={`custom-field-${field.id}-opt-${oi}`}
-                              checked={customResponses[field.id] === opt}
-                              onChange={() => setCustom(field.id, opt)}
-                              className="w-4 h-4 text-primary accent-primary"
-                            />
-                            <span className="text-sm group-hover:text-primary transition-colors">{opt}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+    <div className="space-y-4">
+      {children.map((child) => (
+        <div key={child.id} data-testid={`child-card-${child.id}`}
+          className="bg-white rounded-2xl border border-border/20 shadow-sm overflow-hidden">
+          <div className="flex gap-4 p-5">
+            {child.photoUrl ? (
+              <img src={child.photoUrl} alt={child.name}
+                className="w-20 h-20 rounded-xl object-cover flex-shrink-0 border border-border/20" />
+            ) : (
+              <div className="w-20 h-20 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Heart className="w-8 h-8 text-primary/40" />
               </div>
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="flex gap-3 mt-5">
-        <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
-        <button data-testid="button-save-sponsorship" onClick={handleSave} disabled={saving} className="flex-1 btn-primary py-2.5 text-sm disabled:opacity-60">
-          {saving ? "Guardando..." : (existing ? "Actualizar" : "Registrar")}
-        </button>
-      </div>
-    </motion.div>
-  );
-}
-
-function SponsorshipsTab() {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const { data: items, isLoading } = useQuery<Sponsorship[]>({ queryKey: ["/api/my-sponsorships"] });
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Sponsorship | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-
-  const del = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/sponsorships/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/my-sponsorships"] }); setDeletingId(null); toast({ title: "Apadrinamiento eliminado" }); },
-    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
-  });
-
-  const handleSaved = () => { qc.invalidateQueries({ queryKey: ["/api/my-sponsorships"] }); setShowForm(false); setEditing(null); };
-
-  if (isLoading) return <div className="py-12 text-center text-muted-foreground">Cargando...</div>;
-
-  return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-xl font-display font-bold">Mis apadrinamientos</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Niños que apoyas a través de Alumnos Solidarios</p>
-        </div>
-        {!showForm && !editing && (
-          <button data-testid="button-add-sponsorship" onClick={() => setShowForm(true)} className="flex items-center gap-2 btn-primary text-sm py-2 px-4">
-            <Plus className="w-4 h-4" /> Añadir
-          </button>
-        )}
-      </div>
-      {showForm && !editing && <SponsorshipForm onClose={() => setShowForm(false)} onSaved={handleSaved} />}
-      {!items || items.length === 0 ? (
-        !showForm && (
-          <div className="text-center py-16 border-2 border-dashed border-primary/20 rounded-2xl">
-            <Heart className="w-12 h-12 mx-auto mb-3 text-primary/30" />
-            <p className="font-display font-bold text-lg mb-1">Aún no tienes apadrinamientos</p>
-            <p className="text-sm text-muted-foreground mb-5">Empieza apoyando a un niño hoy</p>
-            <button onClick={() => setShowForm(true)} className="btn-primary text-sm"><Plus className="w-4 h-4 mr-2" />Registrar apadrinamiento</button>
-          </div>
-        )
-      ) : (
-        <div className="space-y-4">
-          {items.map((item) => (
-            <div key={item.id} data-testid={`sponsorship-card-${item.id}`} className="bg-white rounded-2xl border border-border/20 p-5 shadow-sm">
-              {editing?.id === item.id ? (
-                <SponsorshipForm existing={item} onClose={() => setEditing(null)} onSaved={handleSaved} />
-              ) : (
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                        <Heart className="w-4 h-4 text-primary" />
-                      </div>
-                      <h3 className="font-display font-bold text-lg">{item.childName}</h3>
-                      {item.childAge && <span className="text-sm text-muted-foreground">({item.childAge} años)</span>}
-                    </div>
-                    <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mt-2">
-                      <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{item.country}</span>
-                      {item.school && <span className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" />{item.school}</span>}
-                      {item.monthlyAmount && <span className="font-semibold text-primary">{parseFloat(item.monthlyAmount).toFixed(2)}€/mes</span>}
-                      {item.startDate && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />Desde {item.startDate}</span>}
-                    </div>
-                    {item.notes && <p className="text-sm text-muted-foreground mt-2 italic">"{item.notes}"</p>}
-                  </div>
-                  <div className="flex items-center gap-2 ml-4">
-                    <button onClick={() => setEditing(item)} className="p-2 rounded-lg hover:bg-gray-50 text-muted-foreground hover:text-foreground transition-colors text-sm font-medium">Editar</button>
-                    {deletingId === item.id ? (
-                      <div className="flex gap-1.5">
-                        <button onClick={() => del.mutate(item.id)} className="px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg transition-colors">Sí</button>
-                        <button onClick={() => setDeletingId(null)} className="px-2 py-1 text-xs font-bold text-muted-foreground hover:bg-gray-50 rounded-lg transition-colors">No</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setDeletingId(item.id)} className="p-2 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h3 className="font-display font-bold text-lg">{child.name}</h3>
+              <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mt-1">
+                {child.age && <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" />{child.age} años</span>}
+                <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{child.country}</span>
+                {child.school && <span className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" />{child.school}</span>}
+              </div>
+              {child.monthlyAmount && (
+                <p className="mt-2 font-bold text-primary text-lg">{parseFloat(child.monthlyAmount).toFixed(2)}€/mes</p>
+              )}
+              {child.coverageDetails && (
+                <button onClick={() => setExpandedId(expandedId === child.id ? null : child.id)}
+                  className="flex items-center gap-1 text-xs text-primary font-semibold mt-2 hover:underline">
+                  {expandedId === child.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  {expandedId === child.id ? "Ocultar detalles" : "Ver qué cubre tu aportación"}
+                </button>
               )}
             </div>
-          ))}
+          </div>
+          {expandedId === child.id && child.coverageDetails && (
+            <div className="border-t border-border/10 px-5 pb-4 pt-3 bg-primary/5">
+              <p className="text-xs font-bold text-primary/70 uppercase tracking-wide mb-2">Lo que cubre tu aportación</p>
+              <p className="text-sm whitespace-pre-wrap">{child.coverageDetails}</p>
+            </div>
+          )}
+          {child.notes && (
+            <div className="border-t border-border/10 px-5 pb-3 pt-2">
+              <p className="text-xs text-muted-foreground italic">"{child.notes}"</p>
+            </div>
+          )}
         </div>
-      )}
+      ))}
     </div>
   );
 }
 
-// ── Activities Tab ─────────────────────────────────────────────────────────────
+// ── Activities Section ─────────────────────────────────────────────────────────
 
-function ActivitiesTab() {
+function ActivitiesSection() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const { data: myRegs, isLoading: loadingRegs } = useQuery<UserActivityReg[]>({ queryKey: ["/api/my-activities"] });
@@ -303,15 +129,12 @@ function ActivitiesTab() {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
-  if (loadingRegs || loadingAll) return <div className="py-12 text-center text-muted-foreground">Cargando...</div>;
+  if (loadingRegs || loadingAll) return <div className="py-8 text-center text-muted-foreground text-sm">Cargando...</div>;
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-xl font-display font-bold">Mis actividades</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Actividades en las que participas</p>
-        </div>
+      <div className="flex justify-between items-center mb-4">
+        <p className="text-sm text-muted-foreground">{myRegs?.length ?? 0} actividad{(myRegs?.length ?? 0) !== 1 ? "es" : ""} inscritas</p>
         {!showJoin && availableActivities.length > 0 && (
           <button data-testid="button-join-activity" onClick={() => setShowJoin(true)} className="flex items-center gap-2 btn-primary text-sm py-2 px-4">
             <Plus className="w-4 h-4" /> Apuntarme
@@ -319,9 +142,9 @@ function ActivitiesTab() {
         )}
       </div>
       {showJoin && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-accent/20 border border-primary/10 rounded-2xl p-5 mb-5">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-accent/20 border border-primary/10 rounded-2xl p-5 mb-4">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-display font-bold">Apuntarme a una actividad</h3>
+            <h4 className="font-display font-bold text-sm">Apuntarme a una actividad</h4>
             <button onClick={() => setShowJoin(false)} className="p-1 text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
           </div>
           <div className="space-y-3">
@@ -352,45 +175,289 @@ function ActivitiesTab() {
       )}
       {!myRegs || myRegs.length === 0 ? (
         !showJoin && (
-          <div className="text-center py-16 border-2 border-dashed border-primary/20 rounded-2xl">
-            <Calendar className="w-12 h-12 mx-auto mb-3 text-primary/30" />
-            <p className="font-display font-bold text-lg mb-1">Aún no estás apuntado a ninguna actividad</p>
-            <p className="text-sm text-muted-foreground mb-5">Únete a una de nuestras actividades solidarias</p>
+          <div className="text-center py-10 border-2 border-dashed border-primary/20 rounded-2xl">
+            <Calendar className="w-10 h-10 mx-auto mb-3 text-primary/30" />
+            <p className="font-display font-bold mb-1">Sin actividades inscritas</p>
+            <p className="text-sm text-muted-foreground mb-4">Únete a nuestras actividades solidarias</p>
             {availableActivities.length > 0 && (
-              <button onClick={() => setShowJoin(true)} className="btn-primary text-sm"><Plus className="w-4 h-4 mr-2" />Apuntarme a una actividad</button>
+              <button onClick={() => setShowJoin(true)} className="btn-primary text-sm"><Plus className="w-4 h-4 mr-2" />Apuntarme</button>
             )}
           </div>
         )
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {myRegs.map((reg) => (
-            <div key={reg.id} data-testid={`activity-reg-${reg.id}`} className="bg-white rounded-2xl border border-border/20 p-5 shadow-sm flex gap-4">
-              <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Calendar className="w-6 h-6 text-primary" />
+            <div key={reg.id} data-testid={`activity-reg-${reg.id}`} className="bg-white rounded-2xl border border-border/20 p-4 shadow-sm flex gap-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-display font-bold">{reg.activity.title}</h3>
-                <div className="flex flex-wrap gap-3 text-sm text-muted-foreground mt-1">
-                  <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{new Date(reg.activity.date).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}</span>
-                  <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{reg.activity.location}</span>
+                <h4 className="font-semibold text-sm">{reg.activity.title}</h4>
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mt-1">
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(reg.activity.date).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}</span>
+                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{reg.activity.location}</span>
                 </div>
-                {reg.notes && <p className="text-sm text-muted-foreground mt-1.5 italic">"{reg.notes}"</p>}
-                <span className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                {reg.notes && <p className="text-xs text-muted-foreground mt-1 italic">"{reg.notes}"</p>}
+                <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="w-3 h-3" /> Inscrito
                 </span>
               </div>
               <div>
                 {deletingId === reg.id ? (
-                  <div className="flex flex-col gap-1.5">
-                    <button onClick={() => leave.mutate(reg.id)} className="px-3 py-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">Sí, baja</button>
-                    <button onClick={() => setDeletingId(null)} className="px-3 py-1 text-xs font-bold text-muted-foreground hover:bg-gray-50 rounded-lg transition-colors">Cancelar</button>
+                  <div className="flex flex-col gap-1">
+                    <button onClick={() => leave.mutate(reg.id)} className="px-2 py-1 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg">Sí</button>
+                    <button onClick={() => setDeletingId(null)} className="px-2 py-1 text-xs font-bold text-muted-foreground hover:bg-gray-50 rounded-lg">No</button>
                   </div>
                 ) : (
-                  <button onClick={() => setDeletingId(reg.id)} className="text-xs text-muted-foreground hover:text-red-500 transition-colors font-medium whitespace-nowrap">Darse de baja</button>
+                  <button onClick={() => setDeletingId(reg.id)} className="text-xs text-muted-foreground hover:text-red-500 transition-colors font-medium whitespace-nowrap">Baja</button>
                 )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Orders Section ──────────────────────────────────────────────────────────────
+
+function OrdersSection() {
+  const { data: orders, isLoading } = useQuery<Order[]>({ queryKey: ["/api/orders"] });
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  if (isLoading) return <div className="py-8 text-center text-muted-foreground text-sm">Cargando...</div>;
+
+  if (!orders || orders.length === 0) {
+    return (
+      <div className="text-center py-10 border-2 border-dashed border-primary/20 rounded-2xl">
+        <Package className="w-10 h-10 mx-auto mb-3 text-primary/30" />
+        <p className="font-display font-bold mb-1">Sin pedidos aún</p>
+        <p className="text-sm text-muted-foreground">Tus pedidos de la tienda aparecerán aquí.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">{orders.length} pedido{orders.length !== 1 ? "s" : ""}</p>
+      {orders.map((order) => {
+        const statusInfo = ORDER_STATUS_LABELS[order.status] ?? { label: order.status, color: "bg-gray-100 text-gray-700" };
+        const isOpen = expandedId === order.id;
+        return (
+          <div key={order.id} data-testid={`order-card-${order.id}`} className="bg-white rounded-2xl border border-border/20 shadow-sm overflow-hidden">
+            <button
+              onClick={() => setExpandedId(isOpen ? null : order.id)}
+              className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors text-left"
+            >
+              <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Package className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm">Pedido #{order.id}</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusInfo.color}`}>{statusInfo.label}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {order.createdAt ? new Date(order.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" }) : "—"}
+                </p>
+              </div>
+              <span className="font-bold text-primary text-sm flex-shrink-0">{parseFloat(order.total as string).toFixed(2)}€</span>
+              {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+            </button>
+            {isOpen && (
+              <div className="border-t border-border/10 px-4 pb-4 pt-3 bg-gray-50">
+                <div className="space-y-2 text-sm">
+                  {order.isStudent ? (
+                    <p className="text-muted-foreground">Clase: <span className="font-medium">{order.studentClass}</span></p>
+                  ) : (
+                    <p className="text-muted-foreground">Recogida: <span className="font-medium">{order.pickupDate} a las {order.pickupTime}</span></p>
+                  )}
+                  <p className="text-xs font-semibold text-muted-foreground">Estado: <span className={`px-2 py-0.5 rounded-full text-xs ${statusInfo.color}`}>{statusInfo.label}</span></p>
+                  <p className="text-xs text-muted-foreground italic">El estado es actualizado por el equipo de Alumnos Solidarios.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Profile Section ────────────────────────────────────────────────────────────
+
+function ProfileSection({ user }: { user: { username: string; email: string } }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [form, setForm] = useState({ username: user.username, email: user.email });
+  const [editing, setEditing] = useState(false);
+
+  const save = useMutation({
+    mutationFn: () => apiRequest("PATCH", "/api/my-profile", form),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      setEditing(false);
+      toast({ title: "Perfil actualizado" });
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="max-w-md">
+      <div className="bg-white rounded-2xl border border-border/20 p-5 shadow-sm">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+            <User className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h4 className="font-display font-bold">{user.username}</h4>
+            <p className="text-sm text-muted-foreground">{user.email}</p>
+          </div>
+        </div>
+        {editing ? (
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium block mb-1.5">Nombre</label>
+              <input data-testid="input-profile-username" value={form.username}
+                onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div>
+              <label className="text-sm font-medium block mb-1.5">Correo electrónico</label>
+              <input data-testid="input-profile-email" type="email" value={form.email}
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => { setEditing(false); setForm({ username: user.username, email: user.email }); }}
+                className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
+              <button data-testid="button-save-profile" onClick={() => save.mutate()} disabled={save.isPending}
+                className="flex-1 btn-primary py-2.5 text-sm disabled:opacity-60">
+                {save.isPending ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button data-testid="button-edit-profile" onClick={() => setEditing(true)}
+            className="w-full flex items-center gap-2 justify-center py-2.5 rounded-xl border border-primary/30 text-primary text-sm font-semibold hover:bg-primary/5 transition-colors">
+            <Settings className="w-4 h-4" /> Editar perfil
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Gestiones Tab ──────────────────────────────────────────────────────────────
+
+type GestionSection = "children" | "activities" | "orders" | "profile";
+
+function GestionesTab({ user }: { user: { username: string; email: string } }) {
+  const [activeSection, setActiveSection] = useState<GestionSection>("children");
+
+  const sections: { id: GestionSection; label: string; icon: React.ReactNode }[] = [
+    { id: "children", label: "Niños apadrinados", icon: <Heart className="w-4 h-4" /> },
+    { id: "activities", label: "Actividades inscritas", icon: <Calendar className="w-4 h-4" /> },
+    { id: "orders", label: "Pedidos", icon: <Package className="w-4 h-4" /> },
+    { id: "profile", label: "Perfil", icon: <User className="w-4 h-4" /> },
+  ];
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="text-xl font-display font-bold">Gestiones</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">Gestiona tus apadrinamientos, actividades, pedidos y perfil</p>
+      </div>
+      <div className="flex flex-wrap gap-2 mb-6">
+        {sections.map(s => (
+          <button key={s.id} data-testid={`gestiones-section-${s.id}`}
+            onClick={() => setActiveSection(s.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              activeSection === s.id ? "bg-primary text-white shadow-sm" : "text-foreground/60 hover:text-foreground hover:bg-gray-100 bg-gray-50"
+            }`}>
+            {s.icon}{s.label}
+          </button>
+        ))}
+      </div>
+      <AnimatePresence mode="wait">
+        <motion.div key={activeSection} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+          {activeSection === "children" && <ChildrenSection />}
+          {activeSection === "activities" && <ActivitiesSection />}
+          {activeSection === "orders" && <OrdersSection />}
+          {activeSection === "profile" && <ProfileSection user={user} />}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Beneficios Tab ─────────────────────────────────────────────────────────────
+
+function BeneficiosTab() {
+  const { data: benefits, isLoading } = useQuery<Benefit[]>({ queryKey: ["/api/my-benefits"] });
+  const [zoomedId, setZoomedId] = useState<number | null>(null);
+
+  if (isLoading) return <div className="py-12 text-center text-muted-foreground">Cargando...</div>;
+
+  const zoomedBenefit = benefits?.find(b => b.id === zoomedId);
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="text-xl font-display font-bold">Mis beneficios</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">Beneficios exclusivos asignados a tu cuenta</p>
+      </div>
+
+      {!benefits || benefits.length === 0 ? (
+        <div className="text-center py-16 border-2 border-dashed border-primary/20 rounded-2xl">
+          <Gift className="w-12 h-12 mx-auto mb-3 text-primary/30" />
+          <p className="font-display font-bold text-lg mb-1">Sin beneficios asignados aún</p>
+          <p className="text-sm text-muted-foreground">Pronto recibirás beneficios exclusivos como socio.</p>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-4">
+          {benefits.map(benefit => (
+            <div key={benefit.id} data-testid={`benefit-card-${benefit.id}`}
+              className="bg-white rounded-2xl border border-border/20 shadow-sm overflow-hidden group">
+              {benefit.imageUrl && (
+                <div className="relative h-44 overflow-hidden">
+                  <img src={benefit.imageUrl} alt={benefit.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <button
+                    onClick={() => setZoomedId(benefit.id)}
+                    className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-lg hover:bg-white transition-colors">
+                    <ZoomIn className="w-4 h-4 text-foreground" />
+                  </button>
+                </div>
+              )}
+              <div className="p-4">
+                <h3 className="font-display font-bold text-lg mb-1">{benefit.title}</h3>
+                <p className="text-sm text-muted-foreground">{benefit.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {zoomedBenefit && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+          onClick={() => setZoomedId(null)}
+        >
+          <div className="relative max-w-2xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setZoomedId(null)}
+              className="absolute top-3 right-3 z-10 p-1.5 bg-white/80 rounded-lg hover:bg-white transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+            {zoomedBenefit.imageUrl && (
+              <img src={zoomedBenefit.imageUrl} alt={zoomedBenefit.title} className="w-full max-h-80 object-cover" />
+            )}
+            <div className="p-6">
+              <h3 className="font-display font-bold text-xl mb-2">{zoomedBenefit.title}</h3>
+              <p className="text-muted-foreground">{zoomedBenefit.description}</p>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -677,16 +744,17 @@ function MensajesTab() {
 
 // ── Main User Panel ────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "sponsorships" | "activities" | "messages";
+type Tab = "overview" | "gestiones" | "beneficios" | "messages";
 
 export default function UserPanel() {
   const { user, isLoading: authLoading } = useAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
-  const { data: sponsorships } = useQuery<Sponsorship[]>({ queryKey: ["/api/my-sponsorships"] });
   const { data: myRegs } = useQuery<UserActivityReg[]>({ queryKey: ["/api/my-activities"] });
   const { data: messages } = useQuery<InternalMessage[]>({ queryKey: ["/api/my-messages"] });
+  const { data: benefits } = useQuery<Benefit[]>({ queryKey: ["/api/my-benefits"] });
+  const { data: children } = useQuery<SponsoredChild[]>({ queryKey: ["/api/my-sponsored-children"] });
 
   if (authLoading) return (
     <div className="min-h-screen pt-24 flex items-center justify-center">
@@ -711,9 +779,9 @@ export default function UserPanel() {
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "overview", label: "Inicio", icon: <User className="w-5 h-5" /> },
-    { id: "sponsorships", label: "Apadrinamientos", icon: <Heart className="w-5 h-5" />, badge: sponsorships?.length },
-    { id: "activities", label: "Actividades", icon: <Calendar className="w-5 h-5" />, badge: myRegs?.length },
+    { id: "gestiones", label: "Gestiones", icon: <Settings className="w-5 h-5" /> },
     { id: "messages", label: "Mensajes", icon: <MessageSquare className="w-5 h-5" />, badge: unreadMessages || undefined },
+    { id: "beneficios", label: "Beneficios", icon: <Gift className="w-5 h-5" />, badge: benefits?.length },
   ];
 
   return (
@@ -725,7 +793,6 @@ export default function UserPanel() {
           <p className="text-muted-foreground mt-1">Gestiona tu participación en Alumnos Solidarios.</p>
         </div>
 
-        {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-8 bg-white rounded-2xl border border-border/20 p-2 shadow-sm">
           {tabs.map((tab) => (
             <button
@@ -754,17 +821,17 @@ export default function UserPanel() {
                 <div className="space-y-6">
                   <div>
                     <h2 className="text-xl font-display font-bold mb-1">Hola, {user.username} 👋</h2>
-                    <p className="text-muted-foreground text-sm">Aquí tienes un resumen de tu actividad</p>
+                    <p className="text-muted-foreground text-sm">Aquí tienes un resumen de tu actividad como socio</p>
                   </div>
                   <div className="grid sm:grid-cols-3 gap-4">
-                    <button data-testid="overview-card-sponsorships" onClick={() => setActiveTab("sponsorships")}
+                    <button data-testid="overview-card-gestiones" onClick={() => setActiveTab("gestiones")}
                       className="group p-5 rounded-2xl border border-border/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 transition-all text-left">
                       <div className="w-12 h-12 bg-primary/10 group-hover:bg-primary/20 rounded-xl flex items-center justify-center mb-4 transition-colors">
-                        <Heart className="w-6 h-6 text-primary" />
+                        <Settings className="w-6 h-6 text-primary" />
                       </div>
-                      <p className="text-2xl font-display font-bold text-primary">{sponsorships?.length ?? 0}</p>
-                      <p className="font-semibold text-sm mt-1">Apadrinamientos</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Niños que apoyas</p>
+                      <p className="text-2xl font-display font-bold text-primary">{(children?.length ?? 0) + (myRegs?.length ?? 0)}</p>
+                      <p className="font-semibold text-sm mt-1">Gestiones</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Niños, actividades y pedidos</p>
                       <div className="flex items-center gap-1 mt-3 text-xs font-semibold text-primary">
                         Gestionar <ChevronRight className="w-3.5 h-3.5" />
                       </div>
@@ -790,44 +857,43 @@ export default function UserPanel() {
                       </div>
                     </button>
 
-                    <button data-testid="overview-card-activities" onClick={() => setActiveTab("activities")}
-                      className="group p-5 rounded-2xl border border-border/20 bg-green-50 hover:bg-green-100/70 hover:border-green-200 transition-all text-left">
-                      <div className="w-12 h-12 bg-green-100 group-hover:bg-green-200 rounded-xl flex items-center justify-center mb-4 transition-colors">
-                        <Calendar className="w-6 h-6 text-green-600" />
+                    <button data-testid="overview-card-beneficios" onClick={() => setActiveTab("beneficios")}
+                      className="group p-5 rounded-2xl border border-border/20 bg-amber-50 hover:bg-amber-100/70 hover:border-amber-200 transition-all text-left">
+                      <div className="w-12 h-12 bg-amber-100 group-hover:bg-amber-200 rounded-xl flex items-center justify-center mb-4 transition-colors">
+                        <Gift className="w-6 h-6 text-amber-600" />
                       </div>
-                      <p className="text-2xl font-display font-bold text-green-600">{myRegs?.length ?? 0}</p>
-                      <p className="font-semibold text-sm mt-1">Actividades</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">En las que participas</p>
-                      <div className="flex items-center gap-1 mt-3 text-xs font-semibold text-green-600">
-                        Ver actividades <ChevronRight className="w-3.5 h-3.5" />
+                      <p className="text-2xl font-display font-bold text-amber-600">{benefits?.length ?? 0}</p>
+                      <p className="font-semibold text-sm mt-1">Beneficios</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Exclusivos para socios</p>
+                      <div className="flex items-center gap-1 mt-3 text-xs font-semibold text-amber-600">
+                        Ver beneficios <ChevronRight className="w-3.5 h-3.5" />
                       </div>
                     </button>
                   </div>
 
-                  {/* Quick actions */}
                   <div className="border-t border-border/10 pt-5">
                     <p className="text-sm font-semibold text-muted-foreground mb-3">Acciones rápidas</p>
                     <div className="flex flex-wrap gap-3">
-                      <button onClick={() => setActiveTab("sponsorships")} data-testid="quick-action-sponsorship"
+                      <button onClick={() => setActiveTab("gestiones")} data-testid="quick-action-gestiones"
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors">
-                        <Heart className="w-4 h-4" /> Nuevo apadrinamiento
+                        <Heart className="w-4 h-4" /> Ver mis niños
                       </button>
                       <button onClick={() => setActiveTab("messages")} data-testid="quick-action-messages"
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-100 text-blue-700 text-sm font-semibold hover:bg-blue-200 transition-colors">
                         <Inbox className="w-4 h-4" /> Enviar un mensaje
                       </button>
-                      <button onClick={() => setActiveTab("activities")} data-testid="quick-action-activities"
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-100 text-green-700 text-sm font-semibold hover:bg-green-200 transition-colors">
-                        <Calendar className="w-4 h-4" /> Ver actividades
+                      <button onClick={() => setActiveTab("beneficios")} data-testid="quick-action-beneficios"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-100 text-amber-700 text-sm font-semibold hover:bg-amber-200 transition-colors">
+                        <Gift className="w-4 h-4" /> Ver beneficios
                       </button>
                     </div>
                   </div>
                 </div>
               )}
 
-              {activeTab === "sponsorships" && <SponsorshipsTab />}
-              {activeTab === "activities" && <ActivitiesTab />}
+              {activeTab === "gestiones" && <GestionesTab user={user} />}
               {activeTab === "messages" && <MensajesTab />}
+              {activeTab === "beneficios" && <BeneficiosTab />}
             </motion.div>
           </AnimatePresence>
         </div>

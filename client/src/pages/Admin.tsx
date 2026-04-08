@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Plus, Pencil, Trash2, LayoutDashboard, Newspaper, Calendar, ShoppingBag, Tag, X, Check, Package, GraduationCap, Clock, User, Heart, MessageSquare, Upload, Paperclip, Reply, Users, KeyRound, Shield, UserPlus, Settings, GripVertical, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, ListChecks, Type } from "lucide-react";
+import { Plus, Pencil, Trash2, LayoutDashboard, Newspaper, Calendar, ShoppingBag, Tag, X, Check, Package, GraduationCap, Clock, User, Heart, MessageSquare, Upload, Paperclip, Reply, Users, KeyRound, Shield, UserPlus, Settings, GripVertical, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, ListChecks, Type, Gift, Baby } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -1373,9 +1373,525 @@ function UsersAdmin() {
   );
 }
 
+// ── Benefits Admin ────────────────────────────────────────────────────────────
+
+interface Benefit {
+  id: number;
+  title: string;
+  description: string;
+  imageUrl: string | null;
+  isActive: boolean;
+  createdAt: string | null;
+}
+
+interface BenefitAssignment {
+  id: number;
+  benefitId: number;
+  userId: number;
+  assignedAt: string | null;
+}
+
+function BenefitAssignModal({ benefit, users, onClose }: {
+  benefit: Benefit;
+  users: AdminUser[];
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { data: assignments, isLoading } = useQuery<BenefitAssignment[]>({
+    queryKey: ["/api/admin/benefits", benefit.id, "assignments"],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/benefits/${benefit.id}/assignments`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const assignedUserIds = new Set(assignments?.map(a => a.userId) ?? []);
+  const socios = users.filter(u => u.role === "user");
+
+  const assign = useMutation({
+    mutationFn: (userId: number) => apiRequest("POST", `/api/admin/benefits/${benefit.id}/assign`, { userId }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/benefits", benefit.id, "assignments"] }); toast({ title: "Beneficio asignado" }); },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const unassign = useMutation({
+    mutationFn: (userId: number) => apiRequest("DELETE", `/api/admin/benefits/${benefit.id}/assign/${userId}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/benefits", benefit.id, "assignments"] }); toast({ title: "Asignación eliminada" }); },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-border/20">
+          <div>
+            <h3 className="font-display font-bold">Asignar beneficio</h3>
+            <p className="text-sm text-muted-foreground">{benefit.title}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-muted-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-2">
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">Cargando...</div>
+          ) : socios.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">No hay socios registrados.</div>
+          ) : (
+            socios.map(u => {
+              const isAssigned = assignedUserIds.has(u.id);
+              return (
+                <div key={u.id} className="flex items-center justify-between p-3 rounded-xl border border-border/20 hover:bg-gray-50">
+                  <div>
+                    <p className="font-semibold text-sm">{u.username}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                  <button
+                    data-testid={`toggle-benefit-${benefit.id}-user-${u.id}`}
+                    onClick={() => isAssigned ? unassign.mutate(u.id) : assign.mutate(u.id)}
+                    disabled={assign.isPending || unassign.isPending}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-colors disabled:opacity-50 ${
+                      isAssigned ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-primary/10 text-primary hover:bg-primary/20"
+                    }`}>
+                    {isAssigned ? "Quitar" : "Asignar"}
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BenefitsAdmin() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { data: items, isLoading } = useQuery<Benefit[]>({ queryKey: ["/api/admin/benefits"] });
+  const { data: allUsers } = useQuery<AdminUser[]>({ queryKey: ["/api/admin/users"] });
+  const [editing, setEditing] = useState<Partial<Benefit> | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [assigningBenefit, setAssigningBenefit] = useState<Benefit | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editing) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd });
+      if (!res.ok) throw new Error("Error al subir imagen");
+      const data = await res.json();
+      setEditing(prev => ({ ...prev, imageUrl: data.url }));
+      toast({ title: "Imagen subida" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const upsert = useMutation({
+    mutationFn: async (data: Partial<Benefit>) => {
+      if (data.id) await apiRequest("PUT", `/api/admin/benefits/${data.id}`, data);
+      else await apiRequest("POST", "/api/admin/benefits", { ...data, isActive: true });
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/benefits"] }); setEditing(null); toast({ title: "Guardado" }); },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const del = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/benefits/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/benefits"] }); setDeletingId(null); },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div>
+      {assigningBenefit && allUsers && (
+        <BenefitAssignModal benefit={assigningBenefit} users={allUsers} onClose={() => setAssigningBenefit(null)} />
+      )}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-display font-bold">Beneficios</h2>
+        <button data-testid="button-new-benefit"
+          onClick={() => setEditing({ title: "", description: "", imageUrl: "", isActive: true })}
+          className="btn-primary py-2 px-5 text-sm flex items-center gap-2">
+          <Plus className="w-4 h-4" /> Nuevo beneficio
+        </button>
+      </div>
+
+      {editing && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-accent/20 rounded-2xl p-6 mb-6 border border-primary/10">
+          <h3 className="font-bold mb-4">{editing.id ? "Editar beneficio" : "Nuevo beneficio"}</h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Título <span className="text-red-500">*</span></label>
+              <input data-testid="input-benefit-title" value={editing.title || ""} onChange={e => setEditing({ ...editing, title: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Imagen</label>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              <div className="flex gap-2">
+                <input data-testid="input-benefit-image" value={editing.imageUrl || ""}
+                  onChange={e => setEditing({ ...editing, imageUrl: e.target.value })}
+                  placeholder="URL o sube una imagen"
+                  className="flex-1 px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                  className="px-3 py-2 bg-primary/10 hover:bg-primary hover:text-white text-primary rounded-xl text-xs font-bold transition-all flex items-center gap-1 disabled:opacity-50 flex-shrink-0">
+                  <Upload className="w-3.5 h-3.5" />{uploading ? "..." : "Subir"}
+                </button>
+              </div>
+              {editing.imageUrl && (
+                <img src={editing.imageUrl} alt="" className="mt-2 h-16 w-24 object-cover rounded-lg border border-border/20" />
+              )}
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium mb-1 block">Descripción <span className="text-red-500">*</span></label>
+              <textarea data-testid="input-benefit-desc" rows={3} value={editing.description || ""}
+                onChange={e => setEditing({ ...editing, description: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+            </div>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button data-testid="button-save-benefit" onClick={() => upsert.mutate(editing)} disabled={upsert.isPending}
+              className="btn-primary py-2 px-6 text-sm disabled:opacity-50">{upsert.isPending ? "Guardando..." : "Guardar"}</button>
+            <button onClick={() => setEditing(null)} className="px-6 py-2 rounded-full border border-border text-sm font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
+          </div>
+        </motion.div>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+      ) : !items || items.length === 0 ? (
+        <div className="py-16 text-center border-2 border-dashed border-primary/20 rounded-2xl">
+          <Gift className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+          <p className="text-muted-foreground">Aún no hay beneficios creados</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {items.map(item => (
+            <div key={item.id} data-testid={`admin-benefit-${item.id}`} className="bg-white rounded-xl border border-border/20 p-4 flex items-center gap-4">
+              {item.imageUrl ? (
+                <img src={item.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <Gift className="w-5 h-5 text-amber-500" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm line-clamp-1">{item.title}</p>
+                <p className="text-xs text-muted-foreground line-clamp-1">{item.description}</p>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${item.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                  {item.isActive ? "Activo" : "Inactivo"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button data-testid={`button-assign-benefit-${item.id}`}
+                  onClick={() => setAssigningBenefit(item)}
+                  className="px-3 py-1.5 text-xs font-bold bg-primary/10 text-primary hover:bg-primary/20 rounded-xl transition-colors">
+                  Asignar socios
+                </button>
+                {deletingId === item.id ? (
+                  <ConfirmDelete onConfirm={() => del.mutate(item.id)} onCancel={() => setDeletingId(null)} />
+                ) : (
+                  <>
+                    <button data-testid={`button-edit-benefit-${item.id}`} onClick={() => setEditing(item)}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-4 h-4" /></button>
+                    <button data-testid={`button-delete-benefit-${item.id}`} onClick={() => setDeletingId(item.id)}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Sponsored Children Admin ───────────────────────────────────────────────────
+
+interface SponsoredChild {
+  id: number;
+  name: string;
+  age: string | null;
+  country: string;
+  school: string | null;
+  photoUrl: string | null;
+  monthlyAmount: string | null;
+  coverageDetails: string | null;
+  notes: string | null;
+  createdAt: string | null;
+}
+
+interface ChildAssignment {
+  id: number;
+  childId: number;
+  userId: number;
+  assignedAt: string | null;
+}
+
+function ChildAssignModal({ child, users, onClose }: {
+  child: SponsoredChild;
+  users: AdminUser[];
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { data: assignments, isLoading } = useQuery<ChildAssignment[]>({
+    queryKey: ["/api/admin/sponsored-children", child.id, "assignments"],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/sponsored-children/${child.id}/assignments`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const assignedUserIds = new Set(assignments?.map(a => a.userId) ?? []);
+  const socios = users.filter(u => u.role === "user");
+
+  const assign = useMutation({
+    mutationFn: (userId: number) => apiRequest("POST", `/api/admin/sponsored-children/${child.id}/assign`, { userId }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/sponsored-children", child.id, "assignments"] }); toast({ title: "Niño asignado al socio" }); },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const unassign = useMutation({
+    mutationFn: (userId: number) => apiRequest("DELETE", `/api/admin/sponsored-children/${child.id}/assign/${userId}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/sponsored-children", child.id, "assignments"] }); toast({ title: "Asignación eliminada" }); },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-border/20">
+          <div>
+            <h3 className="font-display font-bold">Asignar niño a socios</h3>
+            <p className="text-sm text-muted-foreground">{child.name} · {child.country}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 text-muted-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-2">
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">Cargando...</div>
+          ) : socios.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">No hay socios registrados.</div>
+          ) : (
+            socios.map(u => {
+              const isAssigned = assignedUserIds.has(u.id);
+              return (
+                <div key={u.id} className="flex items-center justify-between p-3 rounded-xl border border-border/20 hover:bg-gray-50">
+                  <div>
+                    <p className="font-semibold text-sm">{u.username}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                  <button
+                    data-testid={`toggle-child-${child.id}-user-${u.id}`}
+                    onClick={() => isAssigned ? unassign.mutate(u.id) : assign.mutate(u.id)}
+                    disabled={assign.isPending || unassign.isPending}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-colors disabled:opacity-50 ${
+                      isAssigned ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-primary/10 text-primary hover:bg-primary/20"
+                    }`}>
+                    {isAssigned ? "Quitar" : "Asignar"}
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SponsoredChildrenAdmin() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { data: items, isLoading } = useQuery<SponsoredChild[]>({ queryKey: ["/api/admin/sponsored-children"] });
+  const { data: allUsers } = useQuery<AdminUser[]>({ queryKey: ["/api/admin/users"] });
+  const [editing, setEditing] = useState<Partial<SponsoredChild> | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [assigningChild, setAssigningChild] = useState<SponsoredChild | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editing) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd });
+      if (!res.ok) throw new Error("Error al subir foto");
+      const data = await res.json();
+      setEditing(prev => ({ ...prev, photoUrl: data.url }));
+      toast({ title: "Foto subida" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const upsert = useMutation({
+    mutationFn: async (data: Partial<SponsoredChild>) => {
+      if (data.id) await apiRequest("PUT", `/api/admin/sponsored-children/${data.id}`, data);
+      else await apiRequest("POST", "/api/admin/sponsored-children", data);
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/sponsored-children"] }); setEditing(null); toast({ title: "Guardado" }); },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const del = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/admin/sponsored-children/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/admin/sponsored-children"] }); setDeletingId(null); },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div>
+      {assigningChild && allUsers && (
+        <ChildAssignModal child={assigningChild} users={allUsers} onClose={() => setAssigningChild(null)} />
+      )}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-display font-bold">Niños apadrinados</h2>
+        <button data-testid="button-new-child"
+          onClick={() => setEditing({ name: "", country: "", age: "", school: "", photoUrl: "", monthlyAmount: "", coverageDetails: "", notes: "" })}
+          className="btn-primary py-2 px-5 text-sm flex items-center gap-2">
+          <Plus className="w-4 h-4" /> Nuevo niño
+        </button>
+      </div>
+
+      {editing && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-accent/20 rounded-2xl p-6 mb-6 border border-primary/10">
+          <h3 className="font-bold mb-4">{editing.id ? "Editar niño" : "Nuevo niño apadrinado"}</h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Nombre <span className="text-red-500">*</span></label>
+              <input data-testid="input-child-name" value={editing.name || ""} onChange={e => setEditing({ ...editing, name: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">País <span className="text-red-500">*</span></label>
+              <input data-testid="input-child-country" value={editing.country || ""} onChange={e => setEditing({ ...editing, country: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Edad</label>
+              <input data-testid="input-child-age" value={editing.age || ""} onChange={e => setEditing({ ...editing, age: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="8 años" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Escuela</label>
+              <input data-testid="input-child-school" value={editing.school || ""} onChange={e => setEditing({ ...editing, school: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Aportación mensual (€)</label>
+              <input data-testid="input-child-amount" type="number" step="0.01" value={editing.monthlyAmount || ""}
+                onChange={e => setEditing({ ...editing, monthlyAmount: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="30.00" />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Foto</label>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+              <div className="flex gap-2">
+                <input data-testid="input-child-photo" value={editing.photoUrl || ""}
+                  onChange={e => setEditing({ ...editing, photoUrl: e.target.value })}
+                  placeholder="URL o sube una foto"
+                  className="flex-1 px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                  className="px-3 py-2 bg-primary/10 hover:bg-primary hover:text-white text-primary rounded-xl text-xs font-bold transition-all flex items-center gap-1 disabled:opacity-50 flex-shrink-0">
+                  <Upload className="w-3.5 h-3.5" />{uploading ? "..." : "Subir"}
+                </button>
+              </div>
+              {editing.photoUrl && (
+                <img src={editing.photoUrl} alt="" className="mt-2 h-16 w-12 object-cover rounded-lg border border-border/20" />
+              )}
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium mb-1 block">Detalles de lo que cubre la aportación</label>
+              <textarea data-testid="input-child-coverage" rows={3} value={editing.coverageDetails || ""}
+                onChange={e => setEditing({ ...editing, coverageDetails: e.target.value })}
+                placeholder="Alimentación, educación, material escolar..."
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium mb-1 block">Notas internas</label>
+              <textarea data-testid="input-child-notes" rows={2} value={editing.notes || ""}
+                onChange={e => setEditing({ ...editing, notes: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+            </div>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button data-testid="button-save-child" onClick={() => upsert.mutate(editing)} disabled={upsert.isPending}
+              className="btn-primary py-2 px-6 text-sm disabled:opacity-50">{upsert.isPending ? "Guardando..." : "Guardar"}</button>
+            <button onClick={() => setEditing(null)} className="px-6 py-2 rounded-full border border-border text-sm font-semibold hover:bg-gray-50 transition-colors">Cancelar</button>
+          </div>
+        </motion.div>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}</div>
+      ) : !items || items.length === 0 ? (
+        <div className="py-16 text-center border-2 border-dashed border-primary/20 rounded-2xl">
+          <Baby className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+          <p className="text-muted-foreground">Aún no hay niños registrados</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {items.map(item => (
+            <div key={item.id} data-testid={`admin-child-${item.id}`} className="bg-white rounded-xl border border-border/20 p-4 flex items-center gap-4">
+              {item.photoUrl ? (
+                <img src={item.photoUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Baby className="w-5 h-5 text-primary/50" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm">{item.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {item.country}{item.age ? ` · ${item.age}` : ""}{item.school ? ` · ${item.school}` : ""}
+                  {item.monthlyAmount ? ` · ${parseFloat(item.monthlyAmount).toFixed(2)}€/mes` : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button data-testid={`button-assign-child-${item.id}`}
+                  onClick={() => setAssigningChild(item)}
+                  className="px-3 py-1.5 text-xs font-bold bg-primary/10 text-primary hover:bg-primary/20 rounded-xl transition-colors">
+                  Asignar socios
+                </button>
+                {deletingId === item.id ? (
+                  <ConfirmDelete onConfirm={() => del.mutate(item.id)} onCancel={() => setDeletingId(null)} />
+                ) : (
+                  <>
+                    <button data-testid={`button-edit-child-${item.id}`} onClick={() => setEditing(item)}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-4 h-4" /></button>
+                    <button data-testid={`button-delete-child-${item.id}`} onClick={() => setDeletingId(item.id)}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Admin Page ───────────────────────────────────────────────────────────
 
-type Tab = "news" | "activities" | "products" | "promos" | "orders" | "sponsorships" | "activity-regs" | "messages" | "users";
+type Tab = "news" | "activities" | "products" | "promos" | "orders" | "sponsorships" | "activity-regs" | "messages" | "users" | "benefits" | "children";
 
 const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "news", label: "Noticias", icon: <Newspaper className="w-5 h-5" /> },
@@ -1383,6 +1899,8 @@ const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: "products", label: "Tienda", icon: <ShoppingBag className="w-5 h-5" /> },
   { id: "promos", label: "Códigos", icon: <Tag className="w-5 h-5" /> },
   { id: "orders", label: "Pedidos", icon: <Package className="w-5 h-5" /> },
+  { id: "benefits", label: "Beneficios", icon: <Gift className="w-5 h-5" /> },
+  { id: "children", label: "Niños", icon: <Baby className="w-5 h-5" /> },
   { id: "sponsorships", label: "Apadrinamientos", icon: <Heart className="w-5 h-5" /> },
   { id: "activity-regs", label: "Inscripciones", icon: <User className="w-5 h-5" /> },
   { id: "messages", label: "Mensajes", icon: <MessageSquare className="w-5 h-5" /> },
@@ -1442,6 +1960,8 @@ export default function Admin() {
           {activeTab === "products" && <ProductsAdmin />}
           {activeTab === "promos" && <PromoCodesAdmin />}
           {activeTab === "orders" && <OrdersAdmin />}
+          {activeTab === "benefits" && <BenefitsAdmin />}
+          {activeTab === "children" && <SponsoredChildrenAdmin />}
           {activeTab === "sponsorships" && <SponsorshipsAdmin />}
           {activeTab === "activity-regs" && <ActivityRegsAdmin />}
           {activeTab === "messages" && <MessagesAdmin />}
