@@ -1,0 +1,53 @@
+PROMPT – FUNCIONALIDADES RESTANTES
+
+Implementa las siguientes funcionalidades restantes usando el mismo diseño, estilos y estructura existentes. No modifiques nada que ya funcione, solo añade lo que falta:
+
+PANEL DE SOCIOS
+Pantalla principal con tres bloques grandes:
+Gestiones
+Mensajes
+Beneficios
+BENEFICIOS
+En el panel de admin:
+Crear, editar y eliminar beneficios (tipo tarjetas con imagen, título y descripción).
+Al crear un beneficio, permitir seleccionar individualmente qué socios lo reciben desde la lista de todos los socios.
+Los socios seleccionados ven y pueden ampliar solo los beneficios asignados a ellos.
+Los socios no seleccionados no ven esos beneficios.
+MENSAJES (CHAT)
+Implementar un chat entre socios y administradores:
+Los socios pueden enviar mensajes a los administradores.
+Todos los administradores pueden ver todas las conversaciones.
+GESTIONES
+Niños apadrinados
+Mostrar los niños asignados a cada socio.
+Cada niño debe mostrar:
+Foto
+Nombre
+Información básica
+Aportación mensual
+Detalles de lo que cubre la aportación
+Los administradores pueden asignar niños a socios desde el panel de admin.
+Actividades inscritas
+Mostrar las actividades en las que el socio está inscrito.
+Pedidos
+Mostrar lista de pedidos del socio con su estado.
+El estado solo puede ser modificado desde el panel de admin.
+Perfil
+Permitir al socio modificar:
+Nombre
+Correo electrónico
+PANEL DE ADMIN
+Añadir gestión completa de beneficios, niños apadrinados y pedidos según lo descrito.
+Acceso completo a todos los mensajes de los socios.
+Permitir asignar beneficios individualmente a socios.
+Permitir asignar niños a socios y definir aportación mensual.
+Permitir actualizar el estado de los pedidos.
+CONTACTO
+Mostrar dirección y horario de atención:
+Calle Vital Aza 65, Madrid
+Horario: 9:00 a 17:00
+Añadir enlace a Instagram: https://www.instagram.com/alumnos_solidarios/?utm_source=ig_web_button_share_sheet
+NOTAS
+Todos los nuevos elementos (panel, tarjetas, chat, bloques) deben respetar el diseño y estilo existentes.
+No cambiar nada de lo que ya se implementó en Home, Contact, Activities, storage, routes o frontend.
+La funcionalidad debe ser completa: administración desde Admin.tsx y visualización correcta desde UserPanel.
