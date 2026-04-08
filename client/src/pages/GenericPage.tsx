@@ -1,4 +1,25 @@
 import { PageHeader } from "@/components/PageHeader";
+import img01 from "@assets/2016-05-13_00.44.25_1775684577939.jpg";
+import img02 from "@assets/2016-05-13_01.07.13_1775684577940.jpg";
+import img03 from "@assets/2016-10-08_15.03.44_1775684577940.jpg";
+import img04 from "@assets/2016-10-17_20.28.31_1775684577941.jpg";
+import img05 from "@assets/2016-10-25_14.01.26_1775684577941.jpg";
+import img06 from "@assets/2016-11-05_19.20.59_1775684577942.jpg";
+import img07 from "@assets/2016-11-11_14.10.04_1775684577942.jpg";
+import img08 from "@assets/2016-11-28_12.51.33_1775684577943.jpg";
+import img09 from "@assets/2016-12-15_01.21.17_1775684577943.jpg";
+import img10 from "@assets/2016-12-15_01.37.44_1775684577944.jpg";
+import img11 from "@assets/2017-01-26_13.04.10_1775684577944.jpg";
+import img12 from "@assets/2017-01-26_13.04.18_1775684577945.jpg";
+import img13 from "@assets/2017-05-22_14.04.39_1775684577945.jpg";
+import img14 from "@assets/2017-08-09_09.41.44_1775684577946.jpg";
+import img15 from "@assets/2017-08-09_09.41.52_1775684577947.jpg";
+import img16 from "@assets/2018-08-22_21.33.30_1775684577947.jpg";
+import img17 from "@assets/2019-12-15_18.38.37_1775684577947.jpg";
+import img18 from "@assets/2019-12-18_10.47.03_1775684577948.jpg";
+import img19 from "@assets/2019-12-21_13.21.16_1775684577948.jpg";
+import { useState } from "react";
+import { X } from "lucide-react";
 
 // Reusable component for static pages like "Razón de ser", "Apadrinamiento", etc.
 interface GenericPageProps {
@@ -20,7 +41,101 @@ export function GenericPage({ title, description, children }: GenericPageProps) 
   );
 }
 
-// Razón de Ser — full content
+// ── Photo Gallery Component ────────────────────────────────────────────────────
+
+interface GalleryPhoto {
+  src: string;
+  alt: string;
+  caption?: string;
+}
+
+function PhotoGallery({ photos }: { photos: GalleryPhoto[] }) {
+  const [lightbox, setLightbox] = useState<GalleryPhoto | null>(null);
+
+  return (
+    <>
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+            onClick={() => setLightbox(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div className="max-w-4xl max-h-[90vh] flex flex-col items-center" onClick={e => e.stopPropagation()}>
+            <img
+              src={lightbox.src}
+              alt={lightbox.alt}
+              className="max-h-[80vh] max-w-full object-contain rounded-xl shadow-2xl"
+            />
+            {lightbox.caption && (
+              <p className="mt-4 text-white/80 text-sm text-center max-w-xl">{lightbox.caption}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Grid */}
+      <div className="columns-2 md:columns-3 gap-3 mt-8">
+        {photos.map((photo, i) => (
+          <div
+            key={i}
+            className="break-inside-avoid mb-3 group cursor-zoom-in"
+            onClick={() => setLightbox(photo)}
+          >
+            <div className="relative overflow-hidden rounded-xl border-4 border-white shadow-md ring-1 ring-black/10 transition-all duration-300 group-hover:shadow-xl group-hover:ring-primary/30 group-hover:scale-[1.02]">
+              <img
+                src={photo.src}
+                alt={photo.alt}
+                className="w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                loading="lazy"
+              />
+              {photo.caption && (
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 py-2 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                  <p className="text-white text-xs font-medium line-clamp-2">{photo.caption}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ── Photos data ───────────────────────────────────────────────────────────────
+
+const todosAUnaPhotos: GalleryPhoto[] = [
+  { src: img01, alt: "Mercadillo solidario con artesanías", caption: "Mercadillo solidario en el colegio Joyfe" },
+  { src: img02, alt: "Presentación en el escenario", caption: "Acto de presentación de actividades solidarias" },
+  { src: img03, alt: "Alumnos con camión DHL", caption: "Envío de materiales con DHL — los alumnos lo hicieron posible" },
+  { src: img09, alt: "Voluntaria con cuentos contra el hambre", caption: "Campaña 'Cuentos Contra el Hambre'" },
+  { src: img10, alt: "Tres estudiantes solidarios", caption: "Alumnos solidarios del Joyfe" },
+  { src: img15, alt: "Voluntaria con figura africana", caption: "Arte solidario — exposición en el centro comercial" },
+  { src: img16, alt: "Equipo de Alumnos Solidarios", caption: "El equipo de Alumnos Solidarios reunido" },
+  { src: img19, alt: "Grupo en exposición benéfica", caption: "Exposición benéfica 'Arte x África' en Madrid" },
+  { src: img05, alt: "Cartel Arte x África", caption: "2ª Exposición benéfica Arte x África — Arturo Soria Plaza" },
+  { src: img06, alt: "Gran evento solidario en centro comercial", caption: "Evento solidario con cientos de asistentes" },
+];
+
+const africaPhotos: GalleryPhoto[] = [
+  { src: img04, alt: "Cargando la ambulancia en Madrid", caption: "Preparando el envío de la ambulancia a Burkina Faso" },
+  { src: img07, alt: "Ambulancia rotulada", caption: "La ambulancia con el logotipo de Joyfe lista para partir" },
+  { src: img08, alt: "Interior de la ambulancia con equipamiento", caption: "Material médico y ortopédico cargado en la ambulancia" },
+  { src: img14, alt: "Ambulancia Z53 en carretera española", caption: "La ambulancia Z53 en su camino a Burkina Faso" },
+  { src: img11, alt: "Ambulancia Centro Médico Eureka en África", caption: "La ambulancia llegó al Centre Médical Eureka en Burkina" },
+  { src: img12, alt: "Vista trasera de la ambulancia en África", caption: "La ambulancia, símbolo de cooperación internacional" },
+  { src: img17, alt: "Descargando contenedor en África", caption: "Descarga del contenedor con materiales en Costa de Marfil" },
+  { src: img18, alt: "Niños en aula de informática", caption: "Los niños de La Anunciación con los ordenadores donados" },
+  { src: img13, alt: "Grupo en la playa con hermanitas", caption: "Visita a los proyectos de las Hermanitas de la Anunciación" },
+];
+
+// ── Razón de Ser — full content ───────────────────────────────────────────────
+
 export function RazonDeSer() {
   return (
     <>
@@ -57,31 +172,22 @@ export function RazonDeSer() {
 
       {/* ── Todos a Una ────────────────────────────────────────────── */}
       <section className="py-20 bg-accent/30">
-        <div className="container-custom max-w-4xl mx-auto">
+        <div className="container-custom max-w-5xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-display font-bold mb-6 text-foreground">Todos a Una</h2>
-          <div className="prose prose-lg prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary">
+          <div className="prose prose-lg prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary max-w-4xl">
             <p>
               Colaboramos con muchísimas entidades que merecen nuestra ayuda. Lo hacemos con ilusión y con creatividad. Estos son algunos ejemplos.
             </p>
           </div>
-          {/* Bloque visual para imágenes de campañas */}
-          <div className="mt-8 border-2 border-dashed border-primary/20 rounded-2xl p-10 text-center bg-white">
-            <div className="text-primary/30 mb-3">
-              <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <p className="text-muted-foreground text-sm font-medium">Espacio para imágenes de campañas y actos realizados</p>
-            <p className="text-muted-foreground text-xs mt-1">(Sube las imágenes desde el panel de administración)</p>
-          </div>
+          <PhotoGallery photos={todosAUnaPhotos} />
         </div>
       </section>
 
       {/* ── África en el Corazón ────────────────────────────────────── */}
       <section className="py-20 bg-white">
-        <div className="container-custom max-w-4xl mx-auto">
+        <div className="container-custom max-w-5xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-display font-bold mb-6 text-foreground">África en el Corazón</h2>
-          <div className="prose prose-lg prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary">
+          <div className="prose prose-lg prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary max-w-4xl">
             <p>
               Los Alumnos Solidarios trabajamos desde hace años con diferentes entidades y personas de confianza, impulsores de mejoras locales en la sanidad y la educación.
             </p>
@@ -133,17 +239,7 @@ export function RazonDeSer() {
             </p>
             <p>Podéis haceros una idea de lo que hicimos viendo estas imágenes.</p>
           </div>
-
-          {/* Bloque visual de imágenes África */}
-          <div className="mt-8 border-2 border-dashed border-primary/20 rounded-2xl p-10 text-center bg-accent/10">
-            <div className="text-primary/30 mb-3">
-              <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <p className="text-muted-foreground text-sm font-medium">Imágenes de los proyectos en África</p>
-            <p className="text-muted-foreground text-xs mt-1">(Sube las imágenes desde el panel de administración)</p>
-          </div>
+          <PhotoGallery photos={africaPhotos} />
         </div>
       </section>
     </>
