@@ -138,6 +138,58 @@ export const insertSponsorshipSchema = createInsertSchema(sponsorships).omit({
 export type Sponsorship = typeof sponsorships.$inferSelect;
 export type InsertSponsorship = z.infer<typeof insertSponsorshipSchema>;
 
+// Sponsored Children (admin-managed)
+export const sponsoredChildren = pgTable("sponsored_children", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  age: text("age"),
+  country: text("country").notNull(),
+  school: text("school"),
+  photoUrl: text("photo_url"),
+  monthlyAmount: numeric("monthly_amount", { precision: 10, scale: 2 }),
+  coverageDetails: text("coverage_details"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export const insertSponsoredChildSchema = createInsertSchema(sponsoredChildren).omit({ id: true, createdAt: true });
+export type SponsoredChild = typeof sponsoredChildren.$inferSelect;
+export type InsertSponsoredChild = z.infer<typeof insertSponsoredChildSchema>;
+
+// Child Assignments (which socio has which child)
+export const childAssignments = pgTable("child_assignments", {
+  id: serial("id").primaryKey(),
+  childId: integer("child_id").notNull().references(() => sponsoredChildren.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+});
+export const insertChildAssignmentSchema = createInsertSchema(childAssignments).omit({ id: true, assignedAt: true });
+export type ChildAssignment = typeof childAssignments.$inferSelect;
+export type InsertChildAssignment = z.infer<typeof insertChildAssignmentSchema>;
+
+// Benefits (admin-created benefit cards)
+export const benefits = pgTable("benefits", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  imageUrl: text("image_url"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export const insertBenefitSchema = createInsertSchema(benefits).omit({ id: true, createdAt: true });
+export type Benefit = typeof benefits.$inferSelect;
+export type InsertBenefit = z.infer<typeof insertBenefitSchema>;
+
+// Benefit Assignments (which socios receive which benefit)
+export const benefitAssignments = pgTable("benefit_assignments", {
+  id: serial("id").primaryKey(),
+  benefitId: integer("benefit_id").notNull().references(() => benefits.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+});
+export const insertBenefitAssignmentSchema = createInsertSchema(benefitAssignments).omit({ id: true, assignedAt: true });
+export type BenefitAssignment = typeof benefitAssignments.$inferSelect;
+export type InsertBenefitAssignment = z.infer<typeof insertBenefitAssignmentSchema>;
+
 // Products
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),

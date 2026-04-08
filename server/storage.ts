@@ -3,16 +3,19 @@ import {
   contactMessages, news, activities, users, products, productImages,
   productReviews, promoCodes, cartItems, orders, orderItems,
   sponsorships, activityRegistrations, internalMessages, sponsorshipFormFields,
+  sponsoredChildren, childAssignments, benefits, benefitAssignments,
   type InsertContactMessage, type InsertNewsItem, type InsertActivity,
   type InsertUser, type InsertProduct, type InsertProductImage,
   type InsertProductReview, type InsertPromoCode, type InsertCartItem,
   type InsertOrder, type InsertOrderItem, type InsertSponsorship,
   type InsertActivityRegistration, type InsertInternalMessage,
-  type InsertSponsorshipFormField,
+  type InsertSponsorshipFormField, type InsertSponsoredChild,
+  type InsertBenefit,
   type NewsItem, type Activity, type User, type Product, type ProductImage,
   type ProductReview, type PromoCode, type CartItem, type Order, type OrderItem,
   type Sponsorship, type ActivityRegistration, type InternalMessage,
-  type SponsorshipFormField,
+  type SponsorshipFormField, type SponsoredChild, type Benefit, type BenefitAssignment,
+  type ChildAssignment,
 } from "@shared/schema";
 import { eq, desc, ilike, or, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
@@ -151,9 +154,30 @@ export interface IStorage {
   changeUserPassword(id: number, newPassword: string): Promise<void>;
   deleteUser(id: number): Promise<void>;
   createAdminUser(user: InsertUser, role: "admin" | "user"): Promise<Omit<User, "password">>;
+  updateUserProfile(id: number, data: { username?: string; email?: string }): Promise<Omit<User, "password"> | undefined>;
 
   // Search
   search(query: string): Promise<{ products: Product[]; news: NewsItem[]; activities: Activity[] }>;
+
+  // Sponsored Children
+  getAllSponsoredChildren(): Promise<SponsoredChild[]>;
+  createSponsoredChild(child: InsertSponsoredChild): Promise<SponsoredChild>;
+  updateSponsoredChild(id: number, child: Partial<InsertSponsoredChild>): Promise<SponsoredChild | undefined>;
+  deleteSponsoredChild(id: number): Promise<void>;
+  getChildrenForUser(userId: number): Promise<SponsoredChild[]>;
+  assignChildToUser(childId: number, userId: number): Promise<void>;
+  unassignChildFromUser(childId: number, userId: number): Promise<void>;
+  getAssignmentsForChild(childId: number): Promise<ChildAssignment[]>;
+
+  // Benefits
+  getAllBenefits(): Promise<Benefit[]>;
+  createBenefit(benefit: InsertBenefit): Promise<Benefit>;
+  updateBenefit(id: number, benefit: Partial<InsertBenefit>): Promise<Benefit | undefined>;
+  deleteBenefit(id: number): Promise<void>;
+  getBenefitsForUser(userId: number): Promise<Benefit[]>;
+  assignBenefitToUser(benefitId: number, userId: number): Promise<void>;
+  unassignBenefitFromUser(benefitId: number, userId: number): Promise<void>;
+  getAssignmentsForBenefit(benefitId: number): Promise<BenefitAssignment[]>;
 }
 
 // ── Implementation ───────────────────────────────────────────────────────────
@@ -573,6 +597,22 @@ export class DatabaseStorage implements IStorage {
     return safe;
   }
 
+  async updateUserProfile(id: number, data: { username?: string; email?: string }): Promise<Omit<User, "password"> | undefined> {
+    const update: Partial<typeof users.$inferInsert> = {};
+    if (data.username) update.username = data.username;
+    if (data.email) update.email = data.email;
+    if (!Object.keys(update).length) {
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      if (!user) return undefined;
+      const { password, ...safe } = user;
+      return safe;
+    }
+    const [updated] = await db.update(users).set(update).where(eq(users.id, id)).returning();
+    if (!updated) return undefined;
+    const { password, ...safe } = updated;
+    return safe;
+  }
+
   // Search
   async search(query: string): Promise<{ products: Product[]; news: NewsItem[]; activities: Activity[] }> {
     const q = `%${query}%`;
@@ -582,6 +622,74 @@ export class DatabaseStorage implements IStorage {
       db.select().from(activities).where(or(ilike(activities.title, q), ilike(activities.description, q))).limit(10),
     ]);
     return { products: searchProducts, news: searchNews, activities: searchActivities };
+  }
+
+  // Sponsored Children
+  async getAllSponsoredChildren(): Promise<SponsoredChild[]> {
+    return db.select().from(sponsoredChildren).orderBy(desc(sponsoredChildren.createdAt));
+  }
+  async createSponsoredChild(child: InsertSponsoredChild): Promise<SponsoredChild> {
+    const [created] = await db.insert(sponsoredChildren).values(child).returning();
+    return created;
+  }
+  async updateSponsoredChild(id: number, child: Partial<InsertSponsoredChild>): Promise<SponsoredChild | undefined> {
+    const [updated] = await db.update(sponsoredChildren).set(child).where(eq(sponsoredChildren.id, id)).returning();
+    return updated;
+  }
+  async deleteSponsoredChild(id: number): Promise<void> {
+    await db.delete(sponsoredChildren).where(eq(sponsoredChildren.id, id));
+  }
+  async getChildrenForUser(userId: number): Promise<SponsoredChild[]> {
+    const assignments = await db.select().from(childAssignments).where(eq(childAssignments.userId, userId));
+    const result: SponsoredChild[] = [];
+    for (const a of assignments) {
+      const [child] = await db.select().from(sponsoredChildren).where(eq(sponsoredChildren.id, a.childId));
+      if (child) result.push(child);
+    }
+    return result;
+  }
+  async assignChildToUser(childId: number, userId: number): Promise<void> {
+    await db.insert(childAssignments).values({ childId, userId }).onConflictDoNothing();
+  }
+  async unassignChildFromUser(childId: number, userId: number): Promise<void> {
+    await db.delete(childAssignments).where(and(eq(childAssignments.childId, childId), eq(childAssignments.userId, userId)));
+  }
+  async getAssignmentsForChild(childId: number): Promise<ChildAssignment[]> {
+    return db.select().from(childAssignments).where(eq(childAssignments.childId, childId));
+  }
+
+  // Benefits
+  async getAllBenefits(): Promise<Benefit[]> {
+    return db.select().from(benefits).orderBy(desc(benefits.createdAt));
+  }
+  async createBenefit(benefit: InsertBenefit): Promise<Benefit> {
+    const [created] = await db.insert(benefits).values(benefit).returning();
+    return created;
+  }
+  async updateBenefit(id: number, benefit: Partial<InsertBenefit>): Promise<Benefit | undefined> {
+    const [updated] = await db.update(benefits).set(benefit).where(eq(benefits.id, id)).returning();
+    return updated;
+  }
+  async deleteBenefit(id: number): Promise<void> {
+    await db.delete(benefits).where(eq(benefits.id, id));
+  }
+  async getBenefitsForUser(userId: number): Promise<Benefit[]> {
+    const assignments = await db.select().from(benefitAssignments).where(eq(benefitAssignments.userId, userId));
+    const result: Benefit[] = [];
+    for (const a of assignments) {
+      const [benefit] = await db.select().from(benefits).where(and(eq(benefits.id, a.benefitId), eq(benefits.isActive, true)));
+      if (benefit) result.push(benefit);
+    }
+    return result;
+  }
+  async assignBenefitToUser(benefitId: number, userId: number): Promise<void> {
+    await db.insert(benefitAssignments).values({ benefitId, userId }).onConflictDoNothing();
+  }
+  async unassignBenefitFromUser(benefitId: number, userId: number): Promise<void> {
+    await db.delete(benefitAssignments).where(and(eq(benefitAssignments.benefitId, benefitId), eq(benefitAssignments.userId, userId)));
+  }
+  async getAssignmentsForBenefit(benefitId: number): Promise<BenefitAssignment[]> {
+    return db.select().from(benefitAssignments).where(eq(benefitAssignments.benefitId, benefitId));
   }
 }
 

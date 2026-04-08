@@ -684,6 +684,106 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ─── SPONSORED CHILDREN ──────────────────────────────────────────────
+  app.get("/api/admin/sponsored-children", requireAdmin, async (_req, res) => {
+    res.json(await storage.getAllSponsoredChildren());
+  });
+  app.post("/api/admin/sponsored-children", requireAdmin, async (req, res) => {
+    try {
+      const child = await storage.createSponsoredChild(req.body);
+      res.json(child);
+    } catch { res.status(500).json({ message: "Error interno" }); }
+  });
+  app.put("/api/admin/sponsored-children/:id", requireAdmin, async (req, res) => {
+    try {
+      const updated = await storage.updateSponsoredChild(Number(req.params.id), req.body);
+      if (!updated) return res.status(404).json({ message: "No encontrado" });
+      res.json(updated);
+    } catch { res.status(500).json({ message: "Error interno" }); }
+  });
+  app.delete("/api/admin/sponsored-children/:id", requireAdmin, async (req, res) => {
+    await storage.deleteSponsoredChild(Number(req.params.id));
+    res.json({ success: true });
+  });
+  app.get("/api/admin/sponsored-children/:id/assignments", requireAdmin, async (req, res) => {
+    res.json(await storage.getAssignmentsForChild(Number(req.params.id)));
+  });
+  app.post("/api/admin/sponsored-children/:id/assign", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = z.object({ userId: z.number() }).parse(req.body);
+      await storage.assignChildToUser(Number(req.params.id), userId);
+      res.json({ success: true });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+  app.delete("/api/admin/sponsored-children/:id/assign/:userId", requireAdmin, async (req, res) => {
+    await storage.unassignChildFromUser(Number(req.params.id), Number(req.params.userId));
+    res.json({ success: true });
+  });
+  app.get("/api/my-sponsored-children", requireAuth, async (req, res) => {
+    res.json(await storage.getChildrenForUser(req.session.userId!));
+  });
+
+  // ─── BENEFITS ────────────────────────────────────────────────────────
+  app.get("/api/admin/benefits", requireAdmin, async (_req, res) => {
+    res.json(await storage.getAllBenefits());
+  });
+  app.post("/api/admin/benefits", requireAdmin, async (req, res) => {
+    try {
+      const benefit = await storage.createBenefit(req.body);
+      res.json(benefit);
+    } catch { res.status(500).json({ message: "Error interno" }); }
+  });
+  app.put("/api/admin/benefits/:id", requireAdmin, async (req, res) => {
+    try {
+      const updated = await storage.updateBenefit(Number(req.params.id), req.body);
+      if (!updated) return res.status(404).json({ message: "No encontrado" });
+      res.json(updated);
+    } catch { res.status(500).json({ message: "Error interno" }); }
+  });
+  app.delete("/api/admin/benefits/:id", requireAdmin, async (req, res) => {
+    await storage.deleteBenefit(Number(req.params.id));
+    res.json({ success: true });
+  });
+  app.get("/api/admin/benefits/:id/assignments", requireAdmin, async (req, res) => {
+    res.json(await storage.getAssignmentsForBenefit(Number(req.params.id)));
+  });
+  app.post("/api/admin/benefits/:id/assign", requireAdmin, async (req, res) => {
+    try {
+      const { userId } = z.object({ userId: z.number() }).parse(req.body);
+      await storage.assignBenefitToUser(Number(req.params.id), userId);
+      res.json({ success: true });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+  app.delete("/api/admin/benefits/:id/assign/:userId", requireAdmin, async (req, res) => {
+    await storage.unassignBenefitFromUser(Number(req.params.id), Number(req.params.userId));
+    res.json({ success: true });
+  });
+  app.get("/api/my-benefits", requireAuth, async (req, res) => {
+    res.json(await storage.getBenefitsForUser(req.session.userId!));
+  });
+
+  // ─── USER PROFILE UPDATE ─────────────────────────────────────────────
+  app.patch("/api/my-profile", requireAuth, async (req, res) => {
+    try {
+      const { username, email } = z.object({
+        username: z.string().min(2).optional(),
+        email: z.string().email().optional(),
+      }).parse(req.body);
+      const updated = await storage.updateUserProfile(req.session.userId!, { username, email });
+      if (!updated) return res.status(404).json({ message: "Usuario no encontrado" });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
+      res.status(500).json({ message: "Error interno" });
+    }
+  });
+
   // ─── SEARCH ──────────────────────────────────────────────────────────
   app.get("/api/search", async (req, res) => {
     try {

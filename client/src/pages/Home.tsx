@@ -1,8 +1,8 @@
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowRight, Heart, Users, Star } from "lucide-react";
-import { useNews, useActivities } from "@/hooks/use-content";
-import { NewsCard, ActivityCard } from "@/components/Card";
+import { useNews } from "@/hooks/use-content";
+import { NewsCard } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 
 // Unsplash images for emotional impact
@@ -12,7 +12,6 @@ import { PageHeader } from "@/components/PageHeader";
 
 export default function Home() {
   const { data: newsItems, isLoading: newsLoading } = useNews();
-  const { data: activities, isLoading: activitiesLoading } = useActivities();
 
   return (
     <div className="w-full">
@@ -110,41 +109,6 @@ export default function Home() {
           
           <div className="mt-8 text-center md:hidden">
             <Link href="/noticias" className="btn-primary w-full">Ver todas las noticias</Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Activities Preview */}
-      <section className="py-24 bg-secondary/30">
-        <div className="container-custom">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">Próximas Actividades</h2>
-            <p className="text-muted-foreground text-lg">
-              Eventos, talleres y encuentros pensados para aprender, compartir y crecer juntos.
-            </p>
-          </div>
-
-          <div className="space-y-8">
-            {activitiesLoading ? (
-              <div className="h-64 bg-gray-100 rounded-2xl animate-pulse" />
-            ) : (
-              activities?.slice(0, 2).map((activity) => (
-                <ActivityCard
-                  key={activity.id}
-                  title={activity.title}
-                  description={activity.description}
-                  imageUrl={activity.imageUrl}
-                  date={activity.date}
-                  location={activity.location}
-                />
-              ))
-            )}
-          </div>
-
-          <div className="mt-12 text-center">
-            <Link href="/actividades" className="inline-flex items-center gap-2 text-foreground font-bold hover:text-primary transition-colors">
-              Consultar agenda completa <ArrowRight className="w-4 h-4" />
-            </Link>
           </div>
         </div>
       </section>

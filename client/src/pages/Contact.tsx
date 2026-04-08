@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertContactMessageSchema, type InsertContactMessage } from "@shared/schema";
 import { useSubmitContact } from "@/hooks/use-content";
 import { PageHeader } from "@/components/PageHeader";
-import { Mail, Phone, MapPin, Send } from "lucide-react";
+import { Mail, Phone, MapPin, Send, Clock, Instagram } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -69,18 +69,31 @@ export default function Contact() {
                   />
                   <ContactDetail 
                     icon={<MapPin className="w-6 h-6" />}
-                    title="Oficina"
-                    content="Calle Ejemplo 123, 28000 Madrid, España"
+                    title="Dirección"
+                    content="Calle Vital Aza 65, Madrid"
                   />
+                  <ContactDetail 
+                    icon={<Clock className="w-6 h-6" />}
+                    title="Horario de atención"
+                    content="Lunes a Viernes: 9:00 – 17:00"
+                  />
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                      <Instagram className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-foreground">Instagram</p>
+                      <a
+                        href="https://www.instagram.com/alumnos_solidarios/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary text-lg hover:underline"
+                      >
+                        @alumnos_solidarios
+                      </a>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="bg-accent/30 p-8 rounded-2xl">
-                <h4 className="font-bold font-display text-lg mb-2">Horario de atención</h4>
-                <p className="text-muted-foreground">
-                  Lunes a Viernes: 9:00 - 18:00<br />
-                  Fines de semana: Cerrado
-                </p>
               </div>
             </div>
 

@@ -1,0 +1,59 @@
+Realiza las siguientes modificaciones manteniendo exactamente el mismo diseño, estructura, estilos visuales, clases CSS y funcionamiento interno. No cambies nada técnico ni estético, solo contenido y nuevas secciones respetando el estilo existente.
+
+CAMBIOS EN CONTENIDO
+Elimina completamente el apartado Actividades (ya que se repite con Agenda).
+En el apartado Agenda, elimina el texto:
+"Somos especialmente sensibles hacia las necesidades de la infancia, sean del tipo que sean. Aquí tenéis un pequeño resumen de las más recientes:"
+Añade o actualiza el apartado de Contacto con:
+Dirección: Calle Vital Aza 65, Madrid
+Horario de atención: 9:00 a 17:00
+Añade enlaces a redes sociales empezando por Instagram (usar el enlace proporcionado).
+PANEL DE SOCIOS
+Crear un panel de socios manteniendo el estilo visual de la web.
+Pantalla principal con tres bloques grandes:
+Gestiones
+Mensajes
+Beneficios
+BENEFICIOS
+En el panel de admin:
+Los administradores pueden crear, editar y eliminar tarjetas de beneficios.
+Al crear un beneficio, el admin puede seleccionar individualmente qué socios lo reciben desde una lista de todos los socios.
+Los socios seleccionados pueden ver y ampliar solo los beneficios asignados a ellos.
+Los socios no seleccionados no ven esos beneficios.
+MENSAJES
+Crear un sistema de chat donde:
+Los socios pueden enviar mensajes a los administradores.
+Todos los administradores pueden ver todas las conversaciones de todos los socios.
+GESTIONES
+
+Dentro de Gestiones incluir:
+
+Niños apadrinados
+Mostrar los niños asignados al socio.
+Cada niño debe incluir:
+Foto
+Nombre
+Información básica
+Aportación mensual
+Detalles de lo que se cubre
+Todo gestionado desde el panel de admin.
+Los administradores pueden asignar niños a socios.
+Actividades inscritas
+Mostrar las actividades en las que el socio está inscrito.
+Pedidos
+Mostrar lista de pedidos del socio con su estado.
+El estado solo puede ser modificado desde el panel de admin.
+Perfil
+Permitir al socio modificar:
+Nombre
+Correo electrónico
+PANEL DE ADMIN
+
+Añadir funcionalidades:
+
+Gestión de beneficios (crear, editar, eliminar y seleccionar socios que lo reciben).
+Gestión de niños apadrinados (crear, editar, asignar, definir aportación).
+Gestión de pedidos (cambiar estado).
+Acceso completo a todos los mensajes de socios.
+
+Asegúrate de que todos los nuevos elementos respetan el diseño visual existente y no modifican ninguna otra parte del sistema.
