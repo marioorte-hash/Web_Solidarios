@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 
 export async function seedAdminUser() {
   try {
-    const username = "AdminSolidarios";
+    const username = "marioorte@alumnossolidarios.org";
     const existing = await db
       .select({ id: users.id })
       .from(users)
@@ -25,7 +25,7 @@ export async function seedAdminUser() {
       role: "admin",
     });
 
-    console.log("[seed] Admin user 'AdminSolidarios' created successfully.");
+    console.log("[seed] Admin user 'Mario Orte' created successfully.");
   } catch (err) {
     console.error("[seed] Error seeding admin user:", err);
   }
