@@ -1,8 +1,11 @@
 import { Link } from "wouter";
 import logo from "@assets/logo.png";
 import { Facebook, Instagram, Twitter, Mail, MapPin, Phone } from "lucide-react";
+import { useT, T } from "@/contexts/language";
 
 export function Footer() {
+  const tr = useT();
+
   return (
     <footer className="bg-white pt-16 pb-8 border-t border-border/40">
       <div className="container-custom">
@@ -13,7 +16,7 @@ export function Footer() {
               <img src={logo} alt="Logo" className="h-16 w-auto grayscale hover:grayscale-0 transition-all duration-500 opacity-90" />
             </Link>
             <p className="text-muted-foreground leading-relaxed max-w-sm">
-              Construyendo un futuro lleno de esperanza y oportunidades para quienes más lo necesitan. Tu apoyo marca la diferencia.
+              {tr(T.footer.tagline)}
             </p>
             <div className="flex gap-4">
               <SocialIcon icon={<Facebook className="w-5 h-5" />} href="#" />
@@ -24,7 +27,7 @@ export function Footer() {
 
           {/* Column 2: Contact */}
           <div>
-            <h3 className="text-lg font-bold mb-6 font-display text-foreground">Contacto</h3>
+            <h3 className="text-lg font-bold mb-6 font-display text-foreground">{tr(T.footer.contactTitle)}</h3>
             <ul className="space-y-4">
               <ContactItem icon={<Mail className="w-5 h-5" />} text="info@alumnossolidarios.org" />
               <ContactItem icon={<Phone className="w-5 h-5" />} text="+34 620 363 285" />
@@ -34,26 +37,26 @@ export function Footer() {
 
           {/* Column 3: Legal & Quick Links */}
           <div>
-            <h3 className="text-lg font-bold mb-6 font-display text-foreground">Información Legal</h3>
+            <h3 className="text-lg font-bold mb-6 font-display text-foreground">{tr(T.footer.legalTitle)}</h3>
             <ul className="space-y-3">
               <li>
                 <Link href="/aviso-legal" className="text-muted-foreground hover:text-primary transition-colors">
-                  Aviso Legal
+                  {tr(T.footer.legalNotice)}
                 </Link>
               </li>
               <li>
                 <Link href="/privacidad" className="text-muted-foreground hover:text-primary transition-colors">
-                  Política de Privacidad
+                  {tr(T.footer.privacy)}
                 </Link>
               </li>
               <li>
                 <Link href="/cookies" className="text-muted-foreground hover:text-primary transition-colors">
-                  Política de Cookies
+                  {tr(T.footer.cookies)}
                 </Link>
               </li>
               <li>
                 <Link href="/contacto" className="text-muted-foreground hover:text-primary transition-colors">
-                  Contactar
+                  {tr(T.footer.contactUs)}
                 </Link>
               </li>
             </ul>
@@ -61,7 +64,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-border/40 pt-8 text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Alumnos Solidarios. Todos los derechos reservados. · Desarrollado por Mario Orte</p>
+          <p>© {new Date().getFullYear()} Alumnos Solidarios. {tr(T.footer.rights)} · {tr(T.footer.devBy)} Mario Orte</p>
         </div>
       </div>
     </footer>

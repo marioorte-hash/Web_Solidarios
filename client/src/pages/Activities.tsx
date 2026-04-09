@@ -1,17 +1,18 @@
 import { PageHeader } from "@/components/PageHeader";
 import { ActivityCard } from "@/components/Card";
 import { useActivities } from "@/hooks/use-content";
-import { useLanguage, localizedText } from "@/contexts/language";
+import { useLanguage, localizedText, useT, T } from "@/contexts/language";
 
 export default function Activities() {
   const { data: activities, isLoading } = useActivities();
   const { lang } = useLanguage();
+  const tr = useT();
 
   return (
     <>
       <PageHeader
-        title="Un Recorrido por Nuestra Historia"
-        description="A lo largo de los años, impulsados desde la Dirección del Colegio madrileño JOYFE, hemos realizado infinidad de acciones de sensibilización con todo tipo de fines."
+        title={tr(T.activities.pageTitle)}
+        description={tr(T.activities.pageDesc)}
       />
 
       <section className="py-20 bg-white">
@@ -27,8 +28,8 @@ export default function Activities() {
               {activities.map((activity) => (
                 <ActivityCard
                   key={activity.id}
-                  title={localizedText(activity.title, activity.titleEn, activity.titleDe, lang)}
-                  description={localizedText(activity.description, activity.descriptionEn, activity.descriptionDe, lang)}
+                  title={localizedText(activity.title, activity.titleEn, activity.titleDe, lang, activity.titleFr)}
+                  description={localizedText(activity.description, activity.descriptionEn, activity.descriptionDe, lang, activity.descriptionFr)}
                   imageUrl={activity.imageUrl}
                   date={activity.date}
                   location={activity.location}
@@ -37,7 +38,7 @@ export default function Activities() {
             </div>
           ) : (
             <div className="text-center py-20">
-              <p className="text-muted-foreground text-lg">No hay actividades programadas próximamente.</p>
+              <p className="text-muted-foreground text-lg">{tr(T.activities.noActivities)}</p>
             </div>
           )}
         </div>

@@ -6,7 +6,7 @@ import { ShoppingCart, Star, Filter, Search } from "lucide-react";
 import { useAddToCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 import type { Product } from "@shared/schema";
-import { useLanguage, localizedText } from "@/contexts/language";
+import { useLanguage, localizedText, useT, T } from "@/contexts/language";
 
 function StarRating({ rating, count }: { rating: number; count: number }) {
   return (
@@ -23,13 +23,14 @@ function ProductCard({ product }: { product: Product }) {
   const addToCart = useAddToCart();
   const { toast } = useToast();
   const { lang } = useLanguage();
+  const tr = useT();
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     try {
       await addToCart.mutateAsync({ productId: product.id });
-      toast({ title: "Añadido al carrito", description: product.title });
+      toast({ title: tr(T.store.addedToCart), description: localizedText(product.title, product.titleEn, product.titleDe, lang, product.titleFr) });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -56,13 +57,17 @@ function ProductCard({ product }: { product: Product }) {
           </div>
           {product.stock === 0 && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-              <span className="text-white font-bold text-sm bg-black/60 px-3 py-1 rounded-full">Agotado</span>
+              <span className="text-white font-bold text-sm bg-black/60 px-3 py-1 rounded-full">{tr(T.store.outOfStock)}</span>
             </div>
           )}
         </div>
         <div className="p-5">
-          <h3 className="font-display font-bold text-lg mb-1 line-clamp-1" data-testid={`text-product-title-${product.id}`}>{localizedText(product.title, product.titleEn, product.titleDe, lang)}</h3>
-          <p className="text-muted-foreground text-sm line-clamp-2 mb-3">{localizedText(product.description, product.descriptionEn, product.descriptionDe, lang)}</p>
+          <h3 className="font-display font-bold text-lg mb-1 line-clamp-1" data-testid={`text-product-title-${product.id}`}>
+            {localizedText(product.title, product.titleEn, product.titleDe, lang, product.titleFr)}
+          </h3>
+          <p className="text-muted-foreground text-sm line-clamp-2 mb-3">
+            {localizedText(product.description, product.descriptionEn, product.descriptionDe, lang, product.descriptionFr)}
+          </p>
           <StarRating rating={0} count={0} />
           <div className="flex items-center justify-between mt-4">
             <span className="text-2xl font-display font-bold text-primary" data-testid={`text-product-price-${product.id}`}>{parseFloat(product.price as string).toFixed(2)}€</span>
@@ -73,7 +78,7 @@ function ProductCard({ product }: { product: Product }) {
               className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary text-primary hover:text-white rounded-full text-sm font-bold transition-all disabled:opacity-50"
             >
               <ShoppingCart className="w-4 h-4" />
-              Añadir
+              {tr(T.store.addToCart)}
             </button>
           </div>
         </div>
@@ -84,13 +89,18 @@ function ProductCard({ product }: { product: Product }) {
 
 export default function Store() {
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("Todos");
+  const [category, setCategory] = useState("");
   const { data: products, isLoading } = useQuery<Product[]>({ queryKey: ["/api/products"] });
+  const tr = useT();
 
-  const categories = ["Todos", ...Array.from(new Set(products?.map((p) => p.category) ?? []))];
+  const allLabel = tr(T.store.all);
+
+  const categories = [allLabel, ...Array.from(new Set(products?.map((p) => p.category) ?? []))];
+
+  const activeCategory = category || allLabel;
 
   const filtered = products?.filter((p) => {
-    const matchesCat = category === "Todos" || p.category === category;
+    const matchesCat = activeCategory === allLabel || p.category === activeCategory;
     const matchesSearch = !search || p.title.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase());
     return matchesCat && matchesSearch;
   });
@@ -100,10 +110,10 @@ export default function Store() {
       <div className="container-custom">
         {/* Header */}
         <div className="text-center mb-12">
-          <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary font-bold text-sm mb-4">Tienda Solidaria</span>
-          <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">Compra con propósito</h1>
+          <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary font-bold text-sm mb-4">{tr(T.store.badge)}</span>
+          <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">{tr(T.store.title)}</h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Cada compra contribuye directamente a nuestros proyectos educativos y solidarios.
+            {tr(T.store.desc)}
           </p>
         </div>
 
@@ -115,7 +125,7 @@ export default function Store() {
               data-testid="input-store-search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar productos..."
+              placeholder={tr(T.store.searchPlaceholder)}
               className="w-full pl-9 pr-4 py-2 rounded-xl bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
@@ -125,8 +135,8 @@ export default function Store() {
               <button
                 key={cat}
                 data-testid={`button-category-${cat}`}
-                onClick={() => setCategory(cat)}
-                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${category === cat ? "bg-primary text-white" : "bg-gray-100 text-foreground/70 hover:bg-primary/10 hover:text-primary"}`}
+                onClick={() => setCategory(cat === allLabel ? "" : cat)}
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${activeCategory === cat ? "bg-primary text-white" : "bg-gray-100 text-foreground/70 hover:bg-primary/10 hover:text-primary"}`}
               >
                 {cat}
               </button>
@@ -144,7 +154,7 @@ export default function Store() {
         ) : filtered?.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
             <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-30" />
-            <p className="text-lg">No se encontraron productos</p>
+            <p className="text-lg">{tr(T.store.noProducts)}</p>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

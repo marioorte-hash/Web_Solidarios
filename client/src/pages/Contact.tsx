@@ -8,10 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useT, T } from "@/contexts/language";
 
 export default function Contact() {
   const { toast } = useToast();
   const mutation = useSubmitContact();
+  const tr = useT();
   
   const form = useForm<InsertContactMessage>({
     resolver: zodResolver(insertContactMessageSchema),
@@ -26,14 +28,14 @@ export default function Contact() {
     mutation.mutate(data, {
       onSuccess: () => {
         toast({
-          title: "¡Mensaje enviado!",
-          description: "Gracias por contactarnos. Te responderemos lo antes posible.",
+          title: tr(T.contact.successTitle),
+          description: tr(T.contact.successDesc),
         });
         form.reset();
       },
       onError: (error) => {
         toast({
-          title: "Error al enviar",
+          title: tr(T.contact.errorTitle),
           description: error.message,
           variant: "destructive"
         });
@@ -44,8 +46,8 @@ export default function Contact() {
   return (
     <>
       <PageHeader 
-        title="Estamos aquí para ti" 
-        description="¿Tienes preguntas, ideas o quieres colaborar? Escríbenos, nos encantará escucharte."
+        title={tr(T.contact.pageTitle)}
+        description={tr(T.contact.pageDesc)}
       />
       
       <section className="py-20 bg-white">
@@ -55,27 +57,27 @@ export default function Contact() {
             {/* Contact Info */}
             <div className="space-y-10">
               <div>
-                <h3 className="text-2xl font-bold font-display mb-6">Información de contacto</h3>
+                <h3 className="text-2xl font-bold font-display mb-6">{tr(T.contact.infoTitle)}</h3>
                 <div className="space-y-6">
                   <ContactDetail 
                     icon={<Mail className="w-6 h-6" />}
-                    title="Email"
+                    title={tr(T.contact.email)}
                     content="info@alumnossolidarios.org"
                   />
                   <ContactDetail 
                     icon={<Phone className="w-6 h-6" />}
-                    title="Teléfono"
+                    title={tr(T.contact.phone)}
                     content="+34 620 363 285"
                   />
                   <ContactDetail 
                     icon={<MapPin className="w-6 h-6" />}
-                    title="Dirección"
+                    title={tr(T.contact.address)}
                     content="Calle Vital Aza 65, Madrid"
                   />
                   <ContactDetail 
                     icon={<Clock className="w-6 h-6" />}
-                    title="Horario de atención"
-                    content="Lunes a Viernes: 9:00 – 17:00"
+                    title={tr(T.contact.hours)}
+                    content={tr(T.contact.hoursValue)}
                   />
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
@@ -99,8 +101,8 @@ export default function Contact() {
 
             {/* Form */}
             <div className="bg-white p-8 md:p-10 rounded-3xl shadow-lg border border-border/40">
-              <h3 className="text-2xl font-bold font-display mb-2">Envíanos un mensaje</h3>
-              <p className="text-muted-foreground mb-8">Completa el formulario y te contactaremos.</p>
+              <h3 className="text-2xl font-bold font-display mb-2">{tr(T.contact.formTitle)}</h3>
+              <p className="text-muted-foreground mb-8">{tr(T.contact.formDesc)}</p>
               
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -109,9 +111,9 @@ export default function Contact() {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nombre completo</FormLabel>
+                        <FormLabel>{tr(T.contact.name)}</FormLabel>
                         <FormControl>
-                          <Input placeholder="Tu nombre" className="rounded-xl py-6" {...field} />
+                          <Input placeholder={tr(T.contact.namePlaceholder)} className="rounded-xl py-6" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -123,7 +125,7 @@ export default function Contact() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Correo electrónico</FormLabel>
+                        <FormLabel>{tr(T.contact.emailLabel)}</FormLabel>
                         <FormControl>
                           <Input placeholder="tucorreo@ejemplo.com" className="rounded-xl py-6" {...field} />
                         </FormControl>
@@ -137,10 +139,10 @@ export default function Contact() {
                     name="message"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Mensaje</FormLabel>
+                        <FormLabel>{tr(T.contact.message)}</FormLabel>
                         <FormControl>
                           <Textarea 
-                            placeholder="¿En qué podemos ayudarte?" 
+                            placeholder={tr(T.contact.messagePlaceholder)}
                             className="rounded-xl min-h-[150px] resize-none" 
                             {...field} 
                           />
@@ -155,8 +157,8 @@ export default function Contact() {
                     disabled={mutation.isPending}
                     className="w-full btn-primary py-4 text-lg rounded-xl flex items-center justify-center gap-2"
                   >
-                    {mutation.isPending ? "Enviando..." : (
-                      <>Enviar Mensaje <Send className="w-5 h-5" /></>
+                    {mutation.isPending ? tr(T.contact.sending) : (
+                      <>{tr(T.contact.send)} <Send className="w-5 h-5" /></>
                     )}
                   </button>
                 </form>

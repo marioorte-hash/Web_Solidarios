@@ -226,7 +226,7 @@ function ActivitiesAdmin() {
   const { toast } = useToast();
   const [editing, setEditing] = useState<Partial<Activity & { dateStr?: string }> | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [actLang, setActLang] = useState<"ES" | "EN" | "DE">("ES");
+  const [actLang, setActLang] = useState<"ES" | "EN" | "DE" | "FR">("ES");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -284,6 +284,7 @@ function ActivitiesAdmin() {
     { id: "ES" as const, flag: "🇪🇸", label: "Español" },
     { id: "EN" as const, flag: "🇬🇧", label: "English" },
     { id: "DE" as const, flag: "🇩🇪", label: "Deutsch" },
+    { id: "FR" as const, flag: "🇫🇷", label: "Français" },
   ];
 
   return (
@@ -330,6 +331,12 @@ function ActivitiesAdmin() {
                 <input value={editing.titleDe || ""} onChange={(e) => setEditing({ ...editing, titleDe: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             )}
+            {actLang === "FR" && (
+              <div>
+                <label className="text-sm font-medium mb-1 block">Titre (FR)</label>
+                <input value={(editing as any).titleFr || ""} onChange={(e) => setEditing({ ...editing, titleFr: e.target.value } as any)} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            )}
 
             <div>
               <label className="text-sm font-medium mb-1 block">Fecha</label>
@@ -371,6 +378,12 @@ function ActivitiesAdmin() {
                 <>
                   <label className="text-sm font-medium mb-1 block">Beschreibung (DE)</label>
                   <textarea rows={3} value={editing.descriptionDe || ""} onChange={(e) => setEditing({ ...editing, descriptionDe: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                </>
+              )}
+              {actLang === "FR" && (
+                <>
+                  <label className="text-sm font-medium mb-1 block">Description (FR)</label>
+                  <textarea rows={3} value={(editing as any).descriptionFr || ""} onChange={(e) => setEditing({ ...editing, descriptionFr: e.target.value } as any)} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
                 </>
               )}
             </div>
@@ -420,7 +433,7 @@ function ProductsAdmin() {
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [newImageUrl, setNewImageUrl] = useState("");
-  const [prodLang, setProdLang] = useState<"ES" | "EN" | "DE">("ES");
+  const [prodLang, setProdLang] = useState<"ES" | "EN" | "DE" | "FR">("ES");
   const [uploadingProd, setUploadingProd] = useState(false);
   const fileRefProd = useRef<HTMLInputElement>(null);
 
@@ -479,6 +492,7 @@ function ProductsAdmin() {
     { id: "ES" as const, flag: "🇪🇸", label: "Español" },
     { id: "EN" as const, flag: "🇬🇧", label: "English" },
     { id: "DE" as const, flag: "🇩🇪", label: "Deutsch" },
+    { id: "FR" as const, flag: "🇫🇷", label: "Français" },
   ];
 
   return (
@@ -521,6 +535,12 @@ function ProductsAdmin() {
               <div>
                 <label className="text-sm font-medium mb-1 block">Titel (DE)</label>
                 <input value={editing.titleDe || ""} onChange={(e) => setEditing({ ...editing, titleDe: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            )}
+            {prodLang === "FR" && (
+              <div>
+                <label className="text-sm font-medium mb-1 block">Titre (FR)</label>
+                <input value={(editing as any).titleFr || ""} onChange={(e) => setEditing({ ...editing, titleFr: e.target.value } as any)} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
               </div>
             )}
             <div>
@@ -566,6 +586,12 @@ function ProductsAdmin() {
                 <>
                   <label className="text-sm font-medium mb-1 block">Beschreibung (DE)</label>
                   <textarea rows={3} value={editing.descriptionDe || ""} onChange={(e) => setEditing({ ...editing, descriptionDe: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                </>
+              )}
+              {prodLang === "FR" && (
+                <>
+                  <label className="text-sm font-medium mb-1 block">Description (FR)</label>
+                  <textarea rows={3} value={(editing as any).descriptionFr || ""} onChange={(e) => setEditing({ ...editing, descriptionFr: e.target.value } as any)} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
                 </>
               )}
             </div>

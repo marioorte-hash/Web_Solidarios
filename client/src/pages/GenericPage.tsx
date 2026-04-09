@@ -19,7 +19,15 @@ import img17 from "@assets/2019-12-15_18.38.37_1775684577947.jpg";
 import img18 from "@assets/2019-12-18_10.47.03_1775684577948.jpg";
 import img19 from "@assets/2019-12-21_13.21.16_1775684577948.jpg";
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Heart, CheckCircle, AlertCircle } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
+import type { SponsorshipFormField } from "@shared/schema";
+import { useT, T } from "@/contexts/language";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Reusable component for static pages like "Razón de ser", "Apadrinamiento", etc.
 interface GenericPageProps {
@@ -246,33 +254,235 @@ export function RazonDeSer() {
   );
 }
 
-// Apadrinamiento page
-export function Apadrinamiento() {
-  return (
-    <GenericPage
-      title="Apadrinamiento"
-      description="Crea un vínculo único y transforma el futuro de un niño."
-    >
-      <h3>¿Qué significa apadrinar?</h3>
-      <p>
-        Apadrinar es mucho más que una aportación económica. Es crear un lazo afectivo y solidario que permite
-        a un niño acceder a educación, salud y nutrición adecuada. Tu apoyo no solo ayuda al niño, sino que
-        impacta positivamente en toda su comunidad.
-      </p>
+// ── Sponsorship Form Modal ────────────────────────────────────────────────────
 
-      <div className="bg-accent/20 p-8 rounded-2xl my-8 border border-accent">
-        <h4 className="text-xl font-bold text-primary mb-4">Tu aportación incluye:</h4>
-        <ul className="list-disc pl-5 space-y-2">
-          <li>Material escolar y apoyo educativo.</li>
-          <li>Revisiones médicas periódicas.</li>
-          <li>Apoyo nutricional.</li>
-          <li>Actividades recreativas y de integración.</li>
-        </ul>
+function SponsorshipModal({ onClose }: { onClose: () => void }) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const tr = useT();
+  const [, navigate] = useLocation();
+  const qc = useQueryClient();
+
+  const { data: fields, isLoading } = useQuery<SponsorshipFormField[]>({
+    queryKey: ["/api/sponsorship-form-fields"],
+  });
+
+  const [responses, setResponses] = useState<Record<number, string>>({});
+  const [submitted, setSubmitted] = useState(false);
+
+  const activeFields = (fields ?? [])
+    .filter((f) => f.isActive)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const mutation = useMutation({
+    mutationFn: (body: any) => apiRequest("POST", "/api/sponsorships", body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/my-sponsorships"] });
+      setSubmitted(true);
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    for (const field of activeFields) {
+      if (field.required && !responses[field.id]?.trim()) {
+        toast({ title: tr(T.sponsorship.requiredField) + `: "${field.label}"`, variant: "destructive" });
+        return;
+      }
+    }
+    const customResponses: Record<string, string> = {};
+    activeFields.forEach((f) => {
+      if (responses[f.id]) customResponses[String(f.id)] = responses[f.id];
+    });
+    mutation.mutate({
+      childName: "Solicitud pendiente de asignación",
+      country: "Pendiente",
+      customResponses: JSON.stringify(customResponses),
+    });
+  };
+
+  if (!user) {
+    return (
+      <ModalShell onClose={onClose}>
+        <div className="text-center py-6">
+          <AlertCircle className="w-14 h-14 text-primary/40 mx-auto mb-4" />
+          <h3 className="text-xl font-display font-bold mb-2">{tr(T.sponsorship.loginRequired)}</h3>
+          <p className="text-muted-foreground mb-6">{tr(T.sponsorship.loginRequiredDesc)}</p>
+          <button
+            onClick={() => { onClose(); navigate("/auth"); }}
+            className="btn-primary"
+          >
+            {tr(T.sponsorship.goToLogin)}
+          </button>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <ModalShell onClose={onClose}>
+        <div className="text-center py-6">
+          <CheckCircle className="w-14 h-14 text-green-500 mx-auto mb-4" />
+          <h3 className="text-xl font-display font-bold mb-2">{tr(T.sponsorship.successTitle)}</h3>
+          <p className="text-muted-foreground mb-6">{tr(T.sponsorship.successDesc)}</p>
+          <button onClick={onClose} className="btn-primary">{tr(T.sponsorship.close)}</button>
+        </div>
+      </ModalShell>
+    );
+  }
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div className="flex items-center gap-3 mb-2">
+        <Heart className="w-6 h-6 text-primary" />
+        <h3 className="text-xl font-display font-bold">{tr(T.sponsorship.formTitle)}</h3>
+      </div>
+      <p className="text-muted-foreground text-sm mb-6">{tr(T.sponsorship.formDesc)}</p>
+
+      {/* User info banner */}
+      <div className="bg-primary/5 border border-primary/15 rounded-xl p-4 mb-6 text-sm">
+        <p className="font-semibold text-foreground mb-1">{tr(T.sponsorship.yourInfo)}</p>
+        <p className="text-muted-foreground"><span className="font-medium">{user.username}</span> · {user.email}</p>
       </div>
 
-      <p className="text-center mt-10">
-        <button className="btn-primary">Quiero apadrinar ahora</button>
-      </p>
-    </GenericPage>
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}
+        </div>
+      ) : activeFields.length === 0 ? (
+        <p className="text-muted-foreground text-sm text-center py-4">{tr(T.sponsorship.noFields)}</p>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {activeFields.map((field) => (
+            <div key={field.id}>
+              <label className="block text-sm font-semibold mb-1.5">
+                {field.label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </label>
+              {field.fieldType === "multiple_choice" && field.options && field.options.length > 0 ? (
+                <div className="space-y-2">
+                  {field.options.map((opt, oi) => (
+                    <label key={oi} className="flex items-center gap-3 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name={`field_${field.id}`}
+                        value={opt}
+                        checked={responses[field.id] === opt}
+                        onChange={() => setResponses(r => ({ ...r, [field.id]: opt }))}
+                        className="accent-primary w-4 h-4"
+                      />
+                      <span className="text-sm text-foreground/80 group-hover:text-foreground">{opt}</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={responses[field.id] ?? ""}
+                  onChange={(e) => setResponses(r => ({ ...r, [field.id]: e.target.value }))}
+                  className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder={field.label}
+                />
+              )}
+            </div>
+          ))}
+
+          {/* Consent notice */}
+          <div className="bg-accent/30 border border-primary/10 rounded-xl p-4 text-xs text-muted-foreground leading-relaxed">
+            {tr(T.sponsorship.shareInfo)}
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold hover:bg-gray-50 transition-colors"
+            >
+              {tr(T.sponsorship.cancel)}
+            </button>
+            <button
+              type="submit"
+              disabled={mutation.isPending}
+              className="flex-1 btn-primary py-2.5 text-sm disabled:opacity-60"
+            >
+              {mutation.isPending ? tr(T.sponsorship.submitting) : tr(T.sponsorship.submit)}
+            </button>
+          </div>
+        </form>
+      )}
+    </ModalShell>
+  );
+}
+
+function ModalShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        className="bg-white rounded-2xl shadow-2xl border border-border/20 w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-muted-foreground transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Apadrinamiento page ───────────────────────────────────────────────────────
+
+export function Apadrinamiento() {
+  const [showModal, setShowModal] = useState(false);
+  const tr = useT();
+
+  return (
+    <>
+      <PageHeader
+        title={tr(T.sponsorship.pageTitle)}
+        description={tr(T.sponsorship.pageDesc)}
+      />
+
+      <section className="py-20 bg-white">
+        <div className="container-custom prose prose-lg prose-headings:font-display prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary max-w-4xl mx-auto">
+          <h3>{tr(T.sponsorship.what)}</h3>
+          <p>{tr(T.sponsorship.whatDesc)}</p>
+
+          <div className="not-prose bg-accent/20 p-8 rounded-2xl my-8 border border-accent">
+            <h4 className="text-xl font-bold text-primary mb-4">{tr(T.sponsorship.includes)}</h4>
+            <ul className="list-disc pl-5 space-y-2 text-muted-foreground">
+              <li>{tr(T.sponsorship.item1)}</li>
+              <li>{tr(T.sponsorship.item2)}</li>
+              <li>{tr(T.sponsorship.item3)}</li>
+              <li>{tr(T.sponsorship.item4)}</li>
+            </ul>
+          </div>
+
+          <div className="not-prose text-center mt-10">
+            <button
+              data-testid="button-sponsor-cta"
+              className="btn-primary text-lg px-10 py-4"
+              onClick={() => setShowModal(true)}
+            >
+              {tr(T.sponsorship.cta)}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <AnimatePresence>
+        {showModal && <SponsorshipModal onClose={() => setShowModal(false)} />}
+      </AnimatePresence>
+    </>
   );
 }

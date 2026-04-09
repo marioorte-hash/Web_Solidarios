@@ -1,15 +1,17 @@
 import { PageHeader } from "@/components/PageHeader";
 import { NewsCard } from "@/components/Card";
 import { useNews } from "@/hooks/use-content";
+import { useT, T } from "@/contexts/language";
 
 export default function News() {
   const { data: newsItems, isLoading } = useNews();
+  const tr = useT();
 
   return (
     <>
       <PageHeader 
-        title="Noticias y Actualidad" 
-        description="Descubre nuestras últimas historias, logros y novedades. Transparencia y cercanía en cada paso que damos."
+        title={tr(T.news.pageTitle)}
+        description={tr(T.news.pageDesc)}
       />
       
       <section className="py-20 bg-white">
@@ -35,7 +37,7 @@ export default function News() {
             </div>
           ) : (
             <div className="text-center py-20">
-              <p className="text-muted-foreground text-lg">No hay noticias disponibles en este momento.</p>
+              <p className="text-muted-foreground text-lg">{tr(T.news.noNews)}</p>
             </div>
           )}
         </div>

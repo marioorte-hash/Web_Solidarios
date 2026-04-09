@@ -1,29 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, Search, ShoppingCart, Globe, User, LogOut, LayoutDashboard, Heart, MessageSquare } from "lucide-react";
+import { Menu, X, Search, ShoppingCart, User, LogOut, LayoutDashboard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import logo from "@assets/logo.png";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 import { useCart, useCartTotal } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
-import { useLanguage, type Lang } from "@/contexts/language";
+import { useLanguage, useT, T, type Lang } from "@/contexts/language";
 
 import Logo_rosa from "@assets/Logo rosa.png";
-
-const links = [
-  { href: "/", label: "Inicio" },
-  { href: "/razon-de-ser", label: "Razón de ser" },
-  { href: "/apadrinamiento", label: "Apadrinamiento" },
-  { href: "/noticias", label: "Noticias" },
-  { href: "/actividades", label: "Actividades" },
-  { href: "/tienda", label: "Tienda" },
-  { href: "/contacto", label: "Contacto" },
-];
 
 const flags: Record<Lang, string> = {
   ES: "🇪🇸",
   EN: "🇬🇧",
   DE: "🇩🇪",
+  FR: "🇫🇷",
 };
 
 export function Navigation() {
@@ -32,6 +22,7 @@ export function Navigation() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { lang: currentLang, setLang: setCurrentLang } = useLanguage();
+  const tr = useT();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [location, navigate] = useLocation();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -41,6 +32,16 @@ export function Navigation() {
   const { data: cartItems } = useCart();
   const { count: cartCount } = useCartTotal(cartItems);
   const logout = useLogout();
+
+  const links = [
+    { href: "/", label: tr(T.nav.home) },
+    { href: "/razon-de-ser", label: tr(T.nav.razonDeSer) },
+    { href: "/apadrinamiento", label: tr(T.nav.apadrinamiento) },
+    { href: "/noticias", label: tr(T.nav.news) },
+    { href: "/actividades", label: tr(T.nav.activities) },
+    { href: "/tienda", label: tr(T.nav.store) },
+    { href: "/contacto", label: tr(T.nav.contact) },
+  ];
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -66,7 +67,7 @@ export function Navigation() {
   const handleLogout = async () => {
     await logout.mutateAsync();
     setUserMenuOpen(false);
-    toast({ title: "Sesión cerrada", description: "Has cerrado sesión correctamente." });
+    toast({ title: tr(T.nav.sessionClosed), description: tr(T.nav.sessionClosedDesc) });
     navigate("/");
   };
 
@@ -111,7 +112,7 @@ export function Navigation() {
               <span className="text-xl leading-none">{flags[currentLang]}</span>
               <span className="text-xs font-bold text-foreground/60">{currentLang}</span>
             </button>
-            <div className="absolute top-full right-0 mt-2 w-32 bg-white rounded-xl shadow-lg border border-black/5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 p-1 z-[60]">
+            <div className="absolute top-full right-0 mt-2 w-36 bg-white rounded-xl shadow-lg border border-black/5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0 p-1 z-[60]">
               {Object.entries(flags).map(([code, flag]) => (
                 <button
                   key={code}
@@ -144,7 +145,7 @@ export function Navigation() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-gray-100 rounded-full px-4 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder="Buscar..."
+                    placeholder={tr(T.nav.search)}
                   />
                 </motion.form>
               )}
@@ -207,7 +208,7 @@ export function Navigation() {
                         className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors text-foreground/70 hover:text-foreground"
                       >
                         <LayoutDashboard className="w-4 h-4" />
-                        Panel Admin
+                        {tr(T.nav.adminPanel)}
                       </Link>
                     )}
                     <Link
@@ -217,7 +218,7 @@ export function Navigation() {
                       className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors text-foreground/70 hover:text-foreground"
                     >
                       <User className="w-4 h-4" />
-                      Mi panel de socio
+                      {tr(T.nav.myPanel)}
                     </Link>
                     <div className="h-px bg-gray-100 my-1" />
                     <button
@@ -226,7 +227,7 @@ export function Navigation() {
                       className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-red-50 text-red-500 transition-colors"
                     >
                       <LogOut className="w-4 h-4" />
-                      Cerrar sesión
+                      {tr(T.nav.logout)}
                     </button>
                   </motion.div>
                 )}
@@ -239,7 +240,7 @@ export function Navigation() {
               className="flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all"
             >
               <User className="w-4 h-4" />
-              Acceder
+              {tr(T.nav.access)}
             </Link>
           )}
         </div>
@@ -283,39 +284,39 @@ export function Navigation() {
                     data-testid="input-mobile-search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar..."
+                    placeholder={tr(T.nav.search)}
                     className="w-full pl-9 pr-4 py-2.5 bg-gray-50 rounded-xl text-sm focus:outline-none"
                   />
                 </form>
                 <div className="flex gap-2">
                   <Link href="/carrito" className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-50 rounded-xl text-sm font-medium hover:bg-gray-100 transition-colors relative">
                     <ShoppingCart className="w-4 h-4" />
-                    Carrito
+                    {tr(T.nav.cart)}
                     {cartCount > 0 && <span className="ml-1 px-1.5 py-0.5 bg-primary text-white rounded-full text-xs font-bold">{cartCount}</span>}
                   </Link>
                   {user ? (
                     <button onClick={handleLogout} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-50 text-red-500 rounded-xl text-sm font-medium">
-                      <LogOut className="w-4 h-4" /> Salir
+                      <LogOut className="w-4 h-4" /> {tr(T.nav.logout)}
                     </button>
                   ) : (
                     <Link href="/auth" className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary/10 text-primary rounded-xl text-sm font-bold">
-                      <User className="w-4 h-4" /> Acceder
+                      <User className="w-4 h-4" /> {tr(T.nav.access)}
                     </Link>
                   )}
                 </div>
                 {user && (
                   <Link href="/mi-panel" data-testid="link-user-panel-mobile" className="flex items-center justify-center gap-2 py-2.5 bg-primary/5 text-primary rounded-xl text-sm font-bold">
-                    <User className="w-4 h-4" /> Mi panel de socio
+                    <User className="w-4 h-4" /> {tr(T.nav.myPanel)}
                   </Link>
                 )}
                 {isAdmin && (
                   <Link href="/admin" className="flex items-center justify-center gap-2 py-2.5 bg-primary/5 text-primary rounded-xl text-sm font-bold">
-                    <LayoutDashboard className="w-4 h-4" /> Panel Admin
+                    <LayoutDashboard className="w-4 h-4" /> {tr(T.nav.adminPanel)}
                   </Link>
                 )}
               </div>
               <div className="flex justify-between items-center px-4 py-3 bg-gray-50 rounded-xl mt-2">
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   {Object.entries(flags).map(([code, flag]) => (
                     <button
                       key={code}

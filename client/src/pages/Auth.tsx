@@ -8,23 +8,7 @@ import { Eye, EyeOff, LogIn, UserPlus, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useLogin, useRegister } from "@/hooks/use-auth";
-
-const loginSchema = z.object({
-  email: z.string().email("Email inválido"),
-  password: z.string().min(1, "Introduce tu contraseña"),
-});
-
-const registerSchema = z.object({
-  username: z.string().min(3, "Mínimo 3 caracteres"),
-  email: z.string().email("Email inválido"),
-  password: z.string().min(6, "Mínimo 6 caracteres"),
-  acceptTerms: z.boolean().refine((v) => v === true, {
-    message: "Debes aceptar la política de privacidad para registrarte",
-  }),
-});
-
-type LoginData = z.infer<typeof loginSchema>;
-type RegisterData = z.infer<typeof registerSchema>;
+import { useT, T } from "@/contexts/language";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -39,6 +23,24 @@ export default function Auth() {
   const { toast } = useToast();
   const login = useLogin();
   const register = useRegister();
+  const tr = useT();
+
+  const loginSchema = z.object({
+    email: z.string().email(tr(T.auth.invalidEmail)),
+    password: z.string().min(1, tr(T.auth.requiredPassword)),
+  });
+
+  const registerSchema = z.object({
+    username: z.string().min(3, tr(T.auth.minChars3)),
+    email: z.string().email(tr(T.auth.invalidEmail)),
+    password: z.string().min(6, tr(T.auth.minChars6)),
+    acceptTerms: z.boolean().refine((v) => v === true, {
+      message: tr(T.auth.acceptTerms),
+    }),
+  });
+
+  type LoginData = z.infer<typeof loginSchema>;
+  type RegisterData = z.infer<typeof registerSchema>;
 
   const {
     register: loginRegister,
@@ -65,7 +67,7 @@ export default function Auth() {
   const onLogin = loginHandleSubmit(async (data) => {
     try {
       await login.mutateAsync(data);
-      toast({ title: "¡Bienvenido!", description: "Has iniciado sesión correctamente." });
+      toast({ title: tr(T.auth.welcome), description: tr(T.auth.loginSuccess) });
       navigate("/");
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -76,7 +78,7 @@ export default function Auth() {
     try {
       const { acceptTerms, ...registerData } = data;
       await register.mutateAsync(registerData);
-      toast({ title: "¡Cuenta creada!", description: "Te has registrado correctamente." });
+      toast({ title: tr(T.auth.accountCreated), description: tr(T.auth.registerSuccess) });
       navigate("/");
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -101,7 +103,7 @@ export default function Auth() {
               onClick={() => setIsLogin(true)}
               className={`flex-1 py-4 text-sm font-bold transition-colors ${isLogin ? "bg-primary text-white" : "bg-gray-50 text-foreground/60 hover:text-foreground"}`}
             >
-              Iniciar sesión
+              {tr(T.auth.loginTitle)}
             </button>
             <button
               data-testid="tab-register"
@@ -109,7 +111,7 @@ export default function Auth() {
               onClick={() => setIsLogin(false)}
               className={`flex-1 py-4 text-sm font-bold transition-colors ${!isLogin ? "bg-primary text-white" : "bg-gray-50 text-foreground/60 hover:text-foreground"}`}
             >
-              Registrarse
+              {tr(T.auth.registerTitle)}
             </button>
           </div>
 
@@ -120,12 +122,12 @@ export default function Auth() {
                   <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                     <LogIn className="w-7 h-7 text-primary" />
                   </div>
-                  <h1 className="text-2xl font-display font-bold">¡Bienvenido de nuevo!</h1>
-                  <p className="text-muted-foreground text-sm mt-1">Accede a tu cuenta</p>
+                  <h1 className="text-2xl font-display font-bold">{tr(T.auth.loginTitle)}</h1>
+                  <p className="text-muted-foreground text-sm mt-1">{tr(T.auth.loginSubtitle)}</p>
                 </div>
                 <form onSubmit={onLogin} className="space-y-5">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">{tr(T.auth.email)}</label>
                     <input
                       data-testid="input-email"
                       type="text"
@@ -137,7 +139,7 @@ export default function Auth() {
                     <FieldError message={loginErrors.email?.message} />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Contraseña</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">{tr(T.auth.password)}</label>
                     <div className="relative">
                       <input
                         data-testid="input-password"
@@ -158,7 +160,7 @@ export default function Auth() {
                     <FieldError message={loginErrors.password?.message} />
                   </div>
                   <Button data-testid="button-login" type="submit" className="w-full rounded-full" disabled={login.isPending}>
-                    {login.isPending ? "Accediendo..." : "Iniciar sesión"}
+                    {login.isPending ? tr(T.auth.loggingIn) : tr(T.auth.loginBtn)}
                   </Button>
                 </form>
               </>
@@ -168,12 +170,12 @@ export default function Auth() {
                   <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                     <UserPlus className="w-7 h-7 text-primary" />
                   </div>
-                  <h1 className="text-2xl font-display font-bold">Crea tu cuenta</h1>
-                  <p className="text-muted-foreground text-sm mt-1">Únete a nuestra comunidad</p>
+                  <h1 className="text-2xl font-display font-bold">{tr(T.auth.registerTitle)}</h1>
+                  <p className="text-muted-foreground text-sm mt-1">{tr(T.auth.registerSubtitle)}</p>
                 </div>
                 <form onSubmit={onRegister} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nombre de usuario</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">{tr(T.auth.username)}</label>
                     <input
                       data-testid="input-username"
                       type="text"
@@ -185,7 +187,7 @@ export default function Auth() {
                     <FieldError message={regErrors.username?.message} />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">{tr(T.auth.email)}</label>
                     <input
                       data-testid="input-email-register"
                       type="text"
@@ -197,13 +199,13 @@ export default function Auth() {
                     <FieldError message={regErrors.email?.message} />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Contraseña</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">{tr(T.auth.password)}</label>
                     <div className="relative">
                       <input
                         data-testid="input-password-register"
                         type={showRegisterPassword ? "text" : "password"}
                         autoComplete="new-password"
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder={tr(T.auth.minChars6)}
                         className={`${inputClass} pr-10`}
                         {...regRegister("password")}
                       />
@@ -223,7 +225,7 @@ export default function Auth() {
                     <div className="flex items-start gap-2">
                       <Shield className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        Al registrarte, tus datos personales (nombre, email) serán almacenados por <strong>Alumnos Solidarios</strong> con el único fin de gestionar tu cuenta y comunicaciones de la asociación. Puedes solicitar la eliminación de tus datos en cualquier momento contactando con nosotros.
+                        {tr(T.auth.privacyLabel)} <strong>Alumnos Solidarios</strong>. {tr(T.auth.acceptTerms)}.
                       </p>
                     </div>
                     <div className="flex items-start gap-3">
@@ -236,14 +238,15 @@ export default function Auth() {
                         onChange={(e) => regSetValue("acceptTerms", e.target.checked, { shouldValidate: true })}
                       />
                       <label htmlFor="acceptTerms" className="text-sm text-gray-700 leading-relaxed cursor-pointer">
-                        Acepto que mi correo electrónico y datos sean almacenados por Alumnos Solidarios conforme a su política de privacidad y protección de datos.
+                        {tr(T.auth.privacyLabel)}{" "}
+                        <a href="/privacidad" className="text-primary underline">{tr(T.auth.privacyLink)}</a>
                       </label>
                     </div>
                     <FieldError message={regErrors.acceptTerms?.message} />
                   </div>
 
                   <Button data-testid="button-register" type="submit" className="w-full rounded-full" disabled={register.isPending}>
-                    {register.isPending ? "Creando cuenta..." : "Registrarse"}
+                    {register.isPending ? tr(T.auth.registering) : tr(T.auth.registerBtn)}
                   </Button>
                 </form>
               </>

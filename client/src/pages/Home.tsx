@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { NewsCard } from "@/components/Card";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { useT, T, localizedText, useLanguage } from "@/contexts/language";
 
 export default function Home() {
   const { data: newsItems, isLoading: newsLoading } = useNews();
@@ -13,6 +14,8 @@ export default function Home() {
   const { data: products, isLoading: productsLoading } = useQuery<any[]>({
     queryKey: ["/api/products"],
   });
+  const tr = useT();
+  const { lang } = useLanguage();
 
   const upcomingActivities = activities?.slice(0, 3) ?? [];
   const featuredProducts = products?.slice(0, 4) ?? [];
@@ -37,21 +40,21 @@ export default function Home() {
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
             <span className="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary font-bold text-sm mb-6">
-              Juntos cambiamos vidas
+              {tr(T.home.badge)}
             </span>
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-display font-bold text-foreground leading-[1.1] mb-6">
-              Pequeños gestos,<br />
-              <span className="text-primary">grandes sonrisas.</span>
+              {tr(T.home.heroTitle1)}<br />
+              <span className="text-primary">{tr(T.home.heroTitle2)}</span>
             </h1>
             <p className="text-xl text-foreground/70 mb-8 max-w-lg leading-relaxed">
-              Trabajamos cada día para construir un futuro lleno de oportunidades, amor y esperanza para quienes más lo necesitan.
+              {tr(T.home.heroDesc)}
             </p>
             <div className="flex flex-wrap gap-4">
               <Link href="/apadrinamiento" className="btn-primary">
-                Colabora hoy
+                {tr(T.home.collaborate)}
               </Link>
               <Link href="/razon-de-ser" className="inline-flex items-center justify-center px-8 py-3 rounded-full text-base font-bold text-foreground bg-white border border-border hover:bg-gray-50 transition-all">
-                Conócenos
+                {tr(T.home.learnAboutUs)}
               </Link>
             </div>
           </motion.div>
@@ -64,18 +67,18 @@ export default function Home() {
           <div className="grid md:grid-cols-3 gap-8">
             <ValueCard 
               icon={<Heart className="w-8 h-8 text-primary" />}
-              title="Compromiso"
-              description="Dedicación total al bienestar y desarrollo integral de cada niño."
+              title={tr(T.home.commitment)}
+              description={tr(T.home.commitmentDesc)}
             />
             <ValueCard 
               icon={<Users className="w-8 h-8 text-primary" />}
-              title="Comunidad"
-              description="Creamos lazos fuertes entre familias, voluntarios y padrinos."
+              title={tr(T.home.community)}
+              description={tr(T.home.communityDesc)}
             />
             <ValueCard 
               icon={<Star className="w-8 h-8 text-primary" />}
-              title="Transparencia"
-              description="Claridad total en la gestión de recursos y el impacto generado."
+              title={tr(T.home.transparency)}
+              description={tr(T.home.transparencyDesc)}
             />
           </div>
         </div>
@@ -86,11 +89,11 @@ export default function Home() {
         <div className="container-custom">
           <div className="flex justify-between items-end mb-12">
             <div>
-              <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">Próximas Actividades</h2>
-              <p className="text-muted-foreground">Participa en nuestros eventos y forma parte de la comunidad.</p>
+              <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">{tr(T.home.upcomingActivities)}</h2>
+              <p className="text-muted-foreground">{tr(T.home.activitiesSubDesc)}</p>
             </div>
             <Link href="/actividades" className="hidden md:flex items-center gap-2 text-primary font-bold hover:gap-3 transition-all">
-              Ver todas <ArrowRight className="w-4 h-4" />
+              {tr(T.home.seeAll)} <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
@@ -101,7 +104,7 @@ export default function Home() {
           ) : upcomingActivities.length === 0 ? (
             <div className="py-16 text-center border-2 border-dashed border-primary/20 rounded-2xl">
               <Calendar className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-              <p className="text-muted-foreground font-medium">Próximamente nuevas actividades</p>
+              <p className="text-muted-foreground font-medium">{tr(T.home.comingSoon)}</p>
             </div>
           ) : (
             <div className="grid md:grid-cols-3 gap-6">
@@ -126,8 +129,14 @@ export default function Home() {
                         </span>
                       )}
                     </div>
-                    <h3 className="font-display font-bold text-lg leading-tight group-hover:text-primary transition-colors">{act.title}</h3>
-                    {act.description && <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{act.description}</p>}
+                    <h3 className="font-display font-bold text-lg leading-tight group-hover:text-primary transition-colors">
+                      {localizedText(act.title, act.titleEn, act.titleDe, lang, act.titleFr)}
+                    </h3>
+                    {act.description && (
+                      <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                        {localizedText(act.description, act.descriptionEn, act.descriptionDe, lang, act.descriptionFr)}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -135,7 +144,7 @@ export default function Home() {
           )}
 
           <div className="mt-8 text-center md:hidden">
-            <Link href="/actividades" className="btn-primary w-full">Ver todas las actividades</Link>
+            <Link href="/actividades" className="btn-primary w-full">{tr(T.home.seeAllActivities)}</Link>
           </div>
         </div>
       </section>
@@ -145,11 +154,11 @@ export default function Home() {
         <div className="container-custom">
           <div className="flex justify-between items-end mb-12">
             <div>
-              <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">Últimas Noticias</h2>
-              <p className="text-muted-foreground">Mantente al día de nuestras acciones y logros.</p>
+              <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">{tr(T.home.latestNews)}</h2>
+              <p className="text-muted-foreground">{tr(T.home.newsSubDesc)}</p>
             </div>
             <Link href="/noticias" className="hidden md:flex items-center gap-2 text-primary font-bold hover:gap-3 transition-all">
-              Ver todas <ArrowRight className="w-4 h-4" />
+              {tr(T.home.seeAll)} <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
@@ -171,7 +180,7 @@ export default function Home() {
           </div>
           
           <div className="mt-8 text-center md:hidden">
-            <Link href="/noticias" className="btn-primary w-full">Ver todas las noticias</Link>
+            <Link href="/noticias" className="btn-primary w-full">{tr(T.home.seeAllNewsBtn)}</Link>
           </div>
         </div>
       </section>
@@ -181,11 +190,11 @@ export default function Home() {
         <div className="container-custom">
           <div className="flex justify-between items-end mb-12">
             <div>
-              <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">Tienda Solidaria</h2>
-              <p className="text-muted-foreground">Compra con propósito. Cada artículo ayuda a financiar nuestros proyectos.</p>
+              <h2 className="text-3xl md:text-4xl font-display font-bold mb-4">{tr(T.home.solidarityStore)}</h2>
+              <p className="text-muted-foreground">{tr(T.home.storeDesc)}</p>
             </div>
             <Link href="/tienda" className="hidden md:flex items-center gap-2 text-primary font-bold hover:gap-3 transition-all">
-              Ver tienda <ArrowRight className="w-4 h-4" />
+              {tr(T.home.seeStore)} <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
@@ -196,7 +205,7 @@ export default function Home() {
           ) : featuredProducts.length === 0 ? (
             <div className="py-16 text-center border-2 border-dashed border-primary/20 rounded-2xl">
               <ShoppingBag className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
-              <p className="text-muted-foreground font-medium">Próximamente artículos en la tienda</p>
+              <p className="text-muted-foreground font-medium">{tr(T.home.comingSoonStore)}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -223,7 +232,7 @@ export default function Home() {
           )}
 
           <div className="mt-8 text-center md:hidden">
-            <Link href="/tienda" className="btn-primary w-full">Ver toda la tienda</Link>
+            <Link href="/tienda" className="btn-primary w-full">{tr(T.home.seeAllStore)}</Link>
           </div>
         </div>
       </section>
@@ -232,12 +241,12 @@ export default function Home() {
       <section className="py-24 bg-primary text-white relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 pattern-dots" />
         <div className="container-custom relative z-10 text-center">
-          <h2 className="text-4xl md:text-5xl font-display font-bold mb-6">¿Quieres ser parte del cambio?</h2>
+          <h2 className="text-4xl md:text-5xl font-display font-bold mb-6">{tr(T.home.ctaTitle)}</h2>
           <p className="text-xl text-white/90 max-w-2xl mx-auto mb-10">
-            Tu apoyo hace posible que sigamos creando historias con final feliz. Descubre cómo puedes colaborar.
+            {tr(T.home.ctaDesc)}
           </p>
           <Link href="/contacto" className="inline-flex items-center justify-center rounded-full px-8 py-4 text-lg font-bold text-primary bg-white hover:scale-105 transition-transform shadow-xl">
-            Contáctanos ahora
+            {tr(T.home.ctaBtn)}
           </Link>
         </div>
       </section>
