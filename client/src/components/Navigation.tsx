@@ -6,6 +6,7 @@ import logo from "@assets/logo.png";
 import { useAuth, useLogout } from "@/hooks/use-auth";
 import { useCart, useCartTotal } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage, type Lang } from "@/contexts/language";
 
 import Logo_rosa from "@assets/Logo rosa.png";
 
@@ -19,11 +20,10 @@ const links = [
   { href: "/contacto", label: "Contacto" },
 ];
 
-const flags = {
+const flags: Record<Lang, string> = {
   ES: "🇪🇸",
+  EN: "🇬🇧",
   DE: "🇩🇪",
-  GB: "🇬🇧",
-  FR: "🇫🇷",
 };
 
 export function Navigation() {
@@ -31,7 +31,7 @@ export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentLang, setCurrentLang] = useState<keyof typeof flags>("ES");
+  const { lang: currentLang, setLang: setCurrentLang } = useLanguage();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [location, navigate] = useLocation();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -115,7 +115,7 @@ export function Navigation() {
               {Object.entries(flags).map(([code, flag]) => (
                 <button
                   key={code}
-                  onClick={() => setCurrentLang(code as keyof typeof flags)}
+                  onClick={() => setCurrentLang(code as Lang)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors ${
                     currentLang === code ? "bg-primary/5 text-primary" : "text-foreground/70"
                   }`}
@@ -319,7 +319,7 @@ export function Navigation() {
                   {Object.entries(flags).map(([code, flag]) => (
                     <button
                       key={code}
-                      onClick={() => setCurrentLang(code as keyof typeof flags)}
+                      onClick={() => setCurrentLang(code as Lang)}
                       className={`text-2xl p-2 rounded-lg transition-all ${
                         currentLang === code
                           ? "bg-white shadow-sm scale-110 border border-black/5"

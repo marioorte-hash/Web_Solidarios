@@ -20,12 +20,12 @@ const PICKUP_TIMES = [
 
 // Available school classes
 const CLASSES = [
-  "1º ESO A", "1º ESO B", "1º ESO C",
-  "2º ESO A", "2º ESO B", "2º ESO C",
-  "3º ESO A", "3º ESO B", "3º ESO C",
-  "4º ESO A", "4º ESO B", "4º ESO C",
-  "1º Bach A", "1º Bach B",
-  "2º Bach A", "2º Bach B",
+  "1º ESO A", "1º ESO B", "1º ESO C", "1º ESO D", "1º ESO E",
+  "2º ESO A", "2º ESO B", "2º ESO C", "2º ESO D", "2º ESO E",
+  "3º ESO A", "3º ESO B", "3º ESO C", "3º ESO D", "3º ESO E",
+  "4º ESO A", "4º ESO B", "4º ESO C", "4º ESO D", "4º ESO E",
+  "1º Bach A", "1º Bach B", "1º Bach C", "1º Bach D", "1º Bach E",
+  "2º Bach A", "2º Bach B", "2º Bach C", "2º Bach D", "2º Bach E",
   "Otro",
 ];
 

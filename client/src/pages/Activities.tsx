@@ -1,9 +1,11 @@
 import { PageHeader } from "@/components/PageHeader";
 import { ActivityCard } from "@/components/Card";
 import { useActivities } from "@/hooks/use-content";
+import { useLanguage, localizedText } from "@/contexts/language";
 
 export default function Activities() {
   const { data: activities, isLoading } = useActivities();
+  const { lang } = useLanguage();
 
   return (
     <>
@@ -25,8 +27,8 @@ export default function Activities() {
               {activities.map((activity) => (
                 <ActivityCard
                   key={activity.id}
-                  title={activity.title}
-                  description={activity.description}
+                  title={localizedText(activity.title, activity.titleEn, activity.titleDe, lang)}
+                  description={localizedText(activity.description, activity.descriptionEn, activity.descriptionDe, lang)}
                   imageUrl={activity.imageUrl}
                   date={activity.date}
                   location={activity.location}

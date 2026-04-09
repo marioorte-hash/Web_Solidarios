@@ -205,7 +205,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/activities", requireAdmin, async (req, res) => {
     try {
-      const input = insertActivitySchema.parse(req.body);
+      const schema = insertActivitySchema.extend({ date: z.coerce.date() });
+      const input = schema.parse(req.body);
       res.json(await storage.createActivity(input));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
@@ -215,7 +216,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/activities/:id", requireAdmin, async (req, res) => {
     try {
-      const input = insertActivitySchema.partial().parse(req.body);
+      const schema = insertActivitySchema.extend({ date: z.coerce.date() }).partial();
+      const input = schema.parse(req.body);
       const updated = await storage.updateActivity(Number(req.params.id), input);
       if (!updated) return res.status(404).json({ message: "No encontrado" });
       res.json(updated);

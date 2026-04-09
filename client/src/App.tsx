@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { useEffect } from "react";
+import { LanguageProvider } from "@/contexts/language";
 
 // Pages
 import Home from "@/pages/Home";
@@ -83,17 +84,19 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <ScrollToTop />
-        <div className="flex flex-col min-h-screen font-sans">
-          <Navigation />
-          <main className="flex-grow pt-0">
-            <Router />
-          </main>
-          <Footer />
-        </div>
-        <Toaster />
-      </TooltipProvider>
+      <LanguageProvider>
+        <TooltipProvider>
+          <ScrollToTop />
+          <div className="flex flex-col min-h-screen font-sans">
+            <Navigation />
+            <main className="flex-grow pt-0">
+              <Router />
+            </main>
+            <Footer />
+          </div>
+          <Toaster />
+        </TooltipProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }

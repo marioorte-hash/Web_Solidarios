@@ -226,6 +226,29 @@ function ActivitiesAdmin() {
   const { toast } = useToast();
   const [editing, setEditing] = useState<Partial<Activity & { dateStr?: string }> | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [actLang, setActLang] = useState<"ES" | "EN" | "DE">("ES");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editing) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd });
+      if (!res.ok) throw new Error("Error al subir imagen");
+      const data = await res.json();
+      setEditing(prev => ({ ...prev, imageUrl: data.url }));
+      toast({ title: "Imagen subida" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   const upsert = useMutation({
     mutationFn: async (data: any) => {
@@ -254,7 +277,14 @@ function ActivitiesAdmin() {
     } else {
       setEditing({ title: "", description: "", dateStr: "", location: "", imageUrl: "" });
     }
+    setActLang("ES");
   };
+
+  const LANG_TABS = [
+    { id: "ES" as const, flag: "🇪🇸", label: "Español" },
+    { id: "EN" as const, flag: "🇬🇧", label: "English" },
+    { id: "DE" as const, flag: "🇩🇪", label: "Deutsch" },
+  ];
 
   return (
     <div>
@@ -268,11 +298,39 @@ function ActivitiesAdmin() {
       {editing && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-accent/20 rounded-2xl p-6 mb-6 border border-primary/10">
           <h3 className="font-bold mb-4">{editing.id ? "Editar actividad" : "Nueva actividad"}</h3>
+
+          {/* Language tabs */}
+          <div className="flex gap-1 mb-4 bg-white rounded-xl p-1 border border-border/30 w-fit">
+            {LANG_TABS.map(tab => (
+              <button key={tab.id} onClick={() => setActLang(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${actLang === tab.id ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:bg-gray-50"}`}>
+                <span>{tab.flag}</span> {tab.label}
+              </button>
+            ))}
+          </div>
+
           <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Título</label>
-              <input data-testid="input-activity-title" value={editing.title || ""} onChange={(e) => setEditing({ ...editing, title: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
+            {actLang === "ES" && (
+              <>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Título (ES)</label>
+                  <input data-testid="input-activity-title" value={editing.title || ""} onChange={(e) => setEditing({ ...editing, title: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                </div>
+              </>
+            )}
+            {actLang === "EN" && (
+              <div>
+                <label className="text-sm font-medium mb-1 block">Title (EN)</label>
+                <input value={editing.titleEn || ""} onChange={(e) => setEditing({ ...editing, titleEn: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            )}
+            {actLang === "DE" && (
+              <div>
+                <label className="text-sm font-medium mb-1 block">Titel (DE)</label>
+                <input value={editing.titleDe || ""} onChange={(e) => setEditing({ ...editing, titleDe: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            )}
+
             <div>
               <label className="text-sm font-medium mb-1 block">Fecha</label>
               <input data-testid="input-activity-date" type="date" value={editing.dateStr || ""} onChange={(e) => setEditing({ ...editing, dateStr: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
@@ -282,12 +340,39 @@ function ActivitiesAdmin() {
               <input data-testid="input-activity-location" value={editing.location || ""} onChange={(e) => setEditing({ ...editing, location: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1 block">URL Imagen</label>
-              <input data-testid="input-activity-image" value={editing.imageUrl || ""} onChange={(e) => setEditing({ ...editing, imageUrl: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <label className="text-sm font-medium mb-1 block">Imagen</label>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              <div className="flex gap-2">
+                <input data-testid="input-activity-image" value={editing.imageUrl || ""} onChange={(e) => setEditing({ ...editing, imageUrl: e.target.value })} placeholder="URL o sube un archivo" className="flex-1 px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                  className="px-3 py-2 bg-primary/10 hover:bg-primary hover:text-white text-primary rounded-xl text-xs font-bold transition-all flex items-center gap-1 disabled:opacity-50 flex-shrink-0">
+                  <Upload className="w-3.5 h-3.5" />{uploading ? "..." : "Subir"}
+                </button>
+              </div>
+              {editing.imageUrl && (
+                <img src={editing.imageUrl} alt="" className="mt-2 h-16 w-24 object-cover rounded-lg border border-border/20" />
+              )}
             </div>
+
             <div className="md:col-span-2">
-              <label className="text-sm font-medium mb-1 block">Descripción</label>
-              <textarea data-testid="input-activity-desc" rows={3} value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+              {actLang === "ES" && (
+                <>
+                  <label className="text-sm font-medium mb-1 block">Descripción (ES)</label>
+                  <textarea data-testid="input-activity-desc" rows={3} value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                </>
+              )}
+              {actLang === "EN" && (
+                <>
+                  <label className="text-sm font-medium mb-1 block">Description (EN)</label>
+                  <textarea rows={3} value={editing.descriptionEn || ""} onChange={(e) => setEditing({ ...editing, descriptionEn: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                </>
+              )}
+              {actLang === "DE" && (
+                <>
+                  <label className="text-sm font-medium mb-1 block">Beschreibung (DE)</label>
+                  <textarea rows={3} value={editing.descriptionDe || ""} onChange={(e) => setEditing({ ...editing, descriptionDe: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                </>
+              )}
             </div>
           </div>
           <div className="flex gap-3 mt-4">
@@ -303,7 +388,7 @@ function ActivitiesAdmin() {
         <div className="space-y-3">
           {items?.map((item) => (
             <div key={item.id} data-testid={`admin-activity-${item.id}`} className="bg-white rounded-xl border border-border/20 p-4 flex items-center gap-4">
-              <img src={`${item.imageUrl}?w=60&h=60&fit=crop&auto=format`} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+              {item.imageUrl && <img src={item.imageUrl.startsWith("/") ? item.imageUrl : `${item.imageUrl}?w=60&h=60&fit=crop&auto=format`} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />}
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm line-clamp-1">{item.title}</p>
                 <p className="text-xs text-muted-foreground">{item.location} · {new Date(item.date as unknown as string).toLocaleDateString("es-ES")}</p>
@@ -335,6 +420,29 @@ function ProductsAdmin() {
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [newImageUrl, setNewImageUrl] = useState("");
+  const [prodLang, setProdLang] = useState<"ES" | "EN" | "DE">("ES");
+  const [uploadingProd, setUploadingProd] = useState(false);
+  const fileRefProd = useRef<HTMLInputElement>(null);
+
+  const handleImageUploadProd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editing) return;
+    setUploadingProd(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd });
+      if (!res.ok) throw new Error("Error al subir imagen");
+      const data = await res.json();
+      setEditing(prev => ({ ...prev, imageUrl: data.url }));
+      toast({ title: "Imagen subida" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingProd(false);
+      if (fileRefProd.current) fileRefProd.current.value = "";
+    }
+  };
 
   const upsert = useMutation({
     mutationFn: async (data: Partial<Product>) => {
@@ -367,11 +475,17 @@ function ProductsAdmin() {
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const LANG_TABS = [
+    { id: "ES" as const, flag: "🇪🇸", label: "Español" },
+    { id: "EN" as const, flag: "🇬🇧", label: "English" },
+    { id: "DE" as const, flag: "🇩🇪", label: "Deutsch" },
+  ];
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-display font-bold">Productos de la Tienda</h2>
-        <button data-testid="button-new-product" onClick={() => setEditing({ title: "", description: "", price: "0", category: "", stock: 0, imageUrl: "" })} className="btn-primary py-2 px-5 text-sm flex items-center gap-2">
+        <button data-testid="button-new-product" onClick={() => { setEditing({ title: "", description: "", price: "0", category: "", stock: 0, imageUrl: "" }); setProdLang("ES"); }} className="btn-primary py-2 px-5 text-sm flex items-center gap-2">
           <Plus className="w-4 h-4" /> Nuevo producto
         </button>
       </div>
@@ -379,11 +493,36 @@ function ProductsAdmin() {
       {editing && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-accent/20 rounded-2xl p-6 mb-6 border border-primary/10">
           <h3 className="font-bold mb-4">{editing.id ? "Editar producto" : "Nuevo producto"}</h3>
+
+          {/* Language tabs */}
+          <div className="flex gap-1 mb-4 bg-white rounded-xl p-1 border border-border/30 w-fit">
+            {LANG_TABS.map(tab => (
+              <button key={tab.id} onClick={() => setProdLang(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${prodLang === tab.id ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:bg-gray-50"}`}>
+                <span>{tab.flag}</span> {tab.label}
+              </button>
+            ))}
+          </div>
+
           <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Título</label>
-              <input data-testid="input-product-title" value={editing.title || ""} onChange={(e) => setEditing({ ...editing, title: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-            </div>
+            {prodLang === "ES" && (
+              <div>
+                <label className="text-sm font-medium mb-1 block">Título (ES)</label>
+                <input data-testid="input-product-title" value={editing.title || ""} onChange={(e) => setEditing({ ...editing, title: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            )}
+            {prodLang === "EN" && (
+              <div>
+                <label className="text-sm font-medium mb-1 block">Title (EN)</label>
+                <input value={editing.titleEn || ""} onChange={(e) => setEditing({ ...editing, titleEn: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            )}
+            {prodLang === "DE" && (
+              <div>
+                <label className="text-sm font-medium mb-1 block">Titel (DE)</label>
+                <input value={editing.titleDe || ""} onChange={(e) => setEditing({ ...editing, titleDe: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium mb-1 block">Categoría</label>
               <input data-testid="input-product-category" value={editing.category || ""} onChange={(e) => setEditing({ ...editing, category: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
@@ -397,12 +536,38 @@ function ProductsAdmin() {
               <input data-testid="input-product-stock" type="number" value={editing.stock || 0} onChange={(e) => setEditing({ ...editing, stock: Number(e.target.value) })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
             <div className="md:col-span-2">
-              <label className="text-sm font-medium mb-1 block">URL Imagen principal</label>
-              <input data-testid="input-product-image" value={editing.imageUrl || ""} onChange={(e) => setEditing({ ...editing, imageUrl: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <label className="text-sm font-medium mb-1 block">Imagen principal</label>
+              <input ref={fileRefProd} type="file" accept="image/*" className="hidden" onChange={handleImageUploadProd} />
+              <div className="flex gap-2">
+                <input data-testid="input-product-image" value={editing.imageUrl || ""} onChange={(e) => setEditing({ ...editing, imageUrl: e.target.value })} placeholder="URL o sube un archivo" className="flex-1 px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                <button onClick={() => fileRefProd.current?.click()} disabled={uploadingProd}
+                  className="px-3 py-2 bg-primary/10 hover:bg-primary hover:text-white text-primary rounded-xl text-xs font-bold transition-all flex items-center gap-1 disabled:opacity-50 flex-shrink-0">
+                  <Upload className="w-3.5 h-3.5" />{uploadingProd ? "..." : "Subir"}
+                </button>
+              </div>
+              {editing.imageUrl && (
+                <img src={editing.imageUrl.startsWith("/") ? editing.imageUrl : `${editing.imageUrl}?w=120&h=80&fit=crop&auto=format`} alt="" className="mt-2 h-16 w-24 object-cover rounded-lg border border-border/20" />
+              )}
             </div>
             <div className="md:col-span-2">
-              <label className="text-sm font-medium mb-1 block">Descripción</label>
-              <textarea data-testid="input-product-desc" rows={3} value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+              {prodLang === "ES" && (
+                <>
+                  <label className="text-sm font-medium mb-1 block">Descripción (ES)</label>
+                  <textarea data-testid="input-product-desc" rows={3} value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                </>
+              )}
+              {prodLang === "EN" && (
+                <>
+                  <label className="text-sm font-medium mb-1 block">Description (EN)</label>
+                  <textarea rows={3} value={editing.descriptionEn || ""} onChange={(e) => setEditing({ ...editing, descriptionEn: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                </>
+              )}
+              {prodLang === "DE" && (
+                <>
+                  <label className="text-sm font-medium mb-1 block">Beschreibung (DE)</label>
+                  <textarea rows={3} value={editing.descriptionDe || ""} onChange={(e) => setEditing({ ...editing, descriptionDe: e.target.value })} className="w-full px-3 py-2 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+                </>
+              )}
             </div>
           </div>
           {editing.id && (
@@ -427,7 +592,7 @@ function ProductsAdmin() {
         <div className="space-y-3">
           {items?.map((item) => (
             <div key={item.id} data-testid={`admin-product-${item.id}`} className="bg-white rounded-xl border border-border/20 p-4 flex items-center gap-4">
-              <img src={`${item.imageUrl}?w=60&h=60&fit=crop&auto=format`} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+              <img src={item.imageUrl.startsWith("/") ? item.imageUrl : `${item.imageUrl}?w=60&h=60&fit=crop&auto=format`} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm line-clamp-1">{item.title}</p>
                 <p className="text-xs text-muted-foreground">{item.category} · {parseFloat(item.price as string).toFixed(2)}€ · Stock: {item.stock}</p>
@@ -437,7 +602,7 @@ function ProductsAdmin() {
                   <ConfirmDelete onConfirm={() => del.mutate(item.id)} onCancel={() => setDeletingId(null)} />
                 ) : (
                   <>
-                    <button data-testid={`button-edit-product-${item.id}`} onClick={() => setEditing(item)} className="p-1.5 rounded-lg hover:bg-gray-100 text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-4 h-4" /></button>
+                    <button data-testid={`button-edit-product-${item.id}`} onClick={() => { setEditing(item); setProdLang("ES"); }} className="p-1.5 rounded-lg hover:bg-gray-100 text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-4 h-4" /></button>
                     <button data-testid={`button-delete-product-${item.id}`} onClick={() => setDeletingId(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                   </>
                 )}

@@ -6,6 +6,7 @@ import { ShoppingCart, Star, Filter, Search } from "lucide-react";
 import { useAddToCart } from "@/hooks/use-cart";
 import { useToast } from "@/hooks/use-toast";
 import type { Product } from "@shared/schema";
+import { useLanguage, localizedText } from "@/contexts/language";
 
 function StarRating({ rating, count }: { rating: number; count: number }) {
   return (
@@ -21,6 +22,7 @@ function StarRating({ rating, count }: { rating: number; count: number }) {
 function ProductCard({ product }: { product: Product }) {
   const addToCart = useAddToCart();
   const { toast } = useToast();
+  const { lang } = useLanguage();
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -59,8 +61,8 @@ function ProductCard({ product }: { product: Product }) {
           )}
         </div>
         <div className="p-5">
-          <h3 className="font-display font-bold text-lg mb-1 line-clamp-1" data-testid={`text-product-title-${product.id}`}>{product.title}</h3>
-          <p className="text-muted-foreground text-sm line-clamp-2 mb-3">{product.description}</p>
+          <h3 className="font-display font-bold text-lg mb-1 line-clamp-1" data-testid={`text-product-title-${product.id}`}>{localizedText(product.title, product.titleEn, product.titleDe, lang)}</h3>
+          <p className="text-muted-foreground text-sm line-clamp-2 mb-3">{localizedText(product.description, product.descriptionEn, product.descriptionDe, lang)}</p>
           <StarRating rating={0} count={0} />
           <div className="flex items-center justify-between mt-4">
             <span className="text-2xl font-display font-bold text-primary" data-testid={`text-product-price-${product.id}`}>{parseFloat(product.price as string).toFixed(2)}€</span>

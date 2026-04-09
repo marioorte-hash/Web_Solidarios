@@ -28,7 +28,7 @@ export function Footer() {
             <ul className="space-y-4">
               <ContactItem icon={<Mail className="w-5 h-5" />} text="info@alumnossolidarios.org" />
               <ContactItem icon={<Phone className="w-5 h-5" />} text="+34 620 363 285" />
-              <ContactItem icon={<MapPin className="w-5 h-5" />} text="Calle Ejemplo 123, Madrid, España" />
+              <ContactItem icon={<MapPin className="w-5 h-5" />} text="Calle Vital Aza 65, Madrid" />
             </ul>
           </div>
 
@@ -61,7 +61,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-border/40 pt-8 text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Nombre de la Asociación. Todos los derechos reservados.</p>
+          <p>© {new Date().getFullYear()} Alumnos Solidarios. Todos los derechos reservados. · Desarrollado por Mario Orte</p>
         </div>
       </div>
     </footer>

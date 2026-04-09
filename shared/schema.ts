@@ -76,7 +76,11 @@ export type InsertNewsItem = z.infer<typeof insertNewsSchema>;
 export const activities = pgTable("activities", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
+  titleEn: text("title_en"),
+  titleDe: text("title_de"),
   description: text("description").notNull(),
+  descriptionEn: text("description_en"),
+  descriptionDe: text("description_de"),
   date: timestamp("date").notNull(),
   location: text("location").notNull(),
   imageUrl: text("image_url").notNull(),
@@ -194,7 +198,11 @@ export type InsertBenefitAssignment = z.infer<typeof insertBenefitAssignmentSche
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
+  titleEn: text("title_en"),
+  titleDe: text("title_de"),
   description: text("description").notNull(),
+  descriptionEn: text("description_en"),
+  descriptionDe: text("description_de"),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
   category: text("category").notNull(),
   stock: integer("stock").notNull().default(0),
