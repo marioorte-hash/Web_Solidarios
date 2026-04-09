@@ -5,11 +5,11 @@ import bcrypt from "bcrypt";
 
 export async function seedAdminUser() {
   try {
-    const username = "marioorte@alumnossolidarios.org";
+    const email = "marioorte@alumnossolidarios.org";
     const existing = await db
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.username, username))
+      .where(eq(users.email, email))
       .limit(1);
 
     if (existing.length > 0) {
@@ -19,13 +19,13 @@ export async function seedAdminUser() {
 
     const hashed = await bcrypt.hash("Alumn@sSolidarios.org_2026", 10);
     await db.insert(users).values({
-      username,
-      email: "marioorte@alumnossolidarios.org",
+      username: "AdminSolidarios",
+      email,
       password: hashed,
       role: "admin",
     });
 
-    console.log("[seed] Admin user 'Mario Orte' created successfully.");
+    console.log("[seed] Admin user 'AdminSolidarios' created successfully.");
   } catch (err) {
     console.error("[seed] Error seeding admin user:", err);
   }
