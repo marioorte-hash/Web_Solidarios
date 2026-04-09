@@ -20,7 +20,7 @@ export async function seedAdminUser() {
     const hashed = await bcrypt.hash("Alumn@sSolidarios.org_2026", 10);
     await db.insert(users).values({
       username,
-      email: "admin@alumnossolidarios.org",
+      email: "marioorte@alumnossolidarios.org",
       password: hashed,
       role: "admin",
     });
