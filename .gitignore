@@ -4,3 +4,24 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Environment secrets — never commit these
+.env
+.env.local
+.env.*.local
+
+# Replit-specific files
+.replit
+replit.nix
+.upm
+
+# Uploads (user content)
+uploads/*
+!uploads/.gitkeep
+
+# Migrations (generated — optional: keep if you want version history)
+# migrations/
+
+# Editor
+.vscode
+.idea
